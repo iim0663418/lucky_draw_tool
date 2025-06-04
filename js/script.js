@@ -279,7 +279,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Display winners
     winners.forEach((name, index) => {
       const col = document.createElement('div');
-      col.className = 'col-md-4';
+      col.className = 'col-12 col-sm-6 col-md-4';
       const card = document.createElement('div');
       card.className = 'card winner-card';
       card.style.animationDelay = `${index * 0.2}s`;
