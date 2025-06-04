@@ -21,7 +21,7 @@ function populatePrizeOptions() {
   const select = document.getElementById('prizeFilter');
   const current = select.value;
   const prizes = Array.from(new Set(historyList.map(item => item.prize)));
-  select.innerHTML = '<option value="全部">全部</option>';
+  select.innerHTML = '<option value=\"全部\">全部</option>';
   prizes.forEach(name => {
     const opt = document.createElement('option');
     opt.value = name;
@@ -39,7 +39,7 @@ function getFilteredList(prizeName) {
 }
 
 function renderHistoryPage(list, page) {
-  const container = document.getElementById('historyContainerContent');
+  const container = document.getElementById('historyContainer');
   container.innerHTML = '';
   const start = (page - 1) * PAGE_SIZE;
   const pageItems = list.slice(start, start + PAGE_SIZE);
@@ -72,8 +72,8 @@ function renderPagination(totalItems) {
   if (totalPages <= 1) return;
 
   const prevLi = document.createElement('li');
-  prevLi.className = \`page-item \${currentPage === 1 ? 'disabled' : ''}\`;
-  prevLi.innerHTML = \`<button class="page-link">上一頁</button>\`;
+  prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+  prevLi.innerHTML = `<button class="page-link">上一頁</button>`;
   prevLi.onclick = () => {
     if (currentPage > 1) {
       currentPage--;
@@ -84,8 +84,8 @@ function renderPagination(totalItems) {
 
   for (let i = 1; i <= totalPages; i++) {
     const li = document.createElement('li');
-    li.className = \`page-item \${currentPage === i ? 'active' : ''}\`;
-    li.innerHTML = \`<button class="page-link">\${i}</button>\`;
+    li.className = `page-item ${currentPage === i ? 'active' : ''}`;
+    li.innerHTML = `<button class="page-link">${i}</button>`;
     li.onclick = () => {
       currentPage = i;
       updateHistoryDisplay();
@@ -94,8 +94,8 @@ function renderPagination(totalItems) {
   }
 
   const nextLi = document.createElement('li');
-  nextLi.className = \`page-item \${currentPage === totalPages ? 'disabled' : ''}\`;
-  nextLi.innerHTML = \`<button class="page-link">下一頁</button>\`;
+  nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+  nextLi.innerHTML = `<button class="page-link">下一頁</button>`;
   nextLi.onclick = () => {
     if (currentPage < totalPages) {
       currentPage++;
@@ -126,7 +126,7 @@ function renderRemainingList(participants) {
     participants.forEach((p, idx) => {
       const li = document.createElement('li');
       li.textContent = p;
-      li.style.animationDelay = \`\${idx * 0.1}s\`;
+      li.style.animationDelay = `${idx * 0.1}s`;
       ul.appendChild(li);
     });
     remainingContainer.appendChild(ul);
@@ -137,13 +137,10 @@ function handleAllowRepeatToggle() {
   const allowRepeat = document.getElementById('allowRepeatCheckbox').checked;
   const remainingWrapper = document.getElementById('remainingWrapper');
   if (allowRepeat) {
-    // 收合剩餘列表
-    const collapseInstance = bootstrap.Collapse.getInstance(remainingWrapper) || new bootstrap.Collapse(remainingWrapper, { toggle: false });
-    collapseInstance.hide();
+    remainingWrapper.style.display = 'none';
+    document.getElementById('remainingContainer').innerHTML = '';
   } else {
-    // 展開剩餘列表
-    const collapseInstance = bootstrap.Collapse.getInstance(remainingWrapper) || new bootstrap.Collapse(remainingWrapper, { toggle: false });
-    collapseInstance.show();
+    remainingWrapper.style.display = 'block';
     const participants = document.getElementById('nameList').value
       .split('\n').map(n => n.trim()).filter(n => n !== '');
     updateParticipantCount(participants.length);
@@ -152,6 +149,37 @@ function handleAllowRepeatToggle() {
   document.getElementById('repeatHelp').textContent = allowRepeat
     ? '允許同一參與者重複中獎，不會移除名單。'
     : '不允許同一參與者重複中獎，中獎者將從名單移除。';
+}
+
+// Show countdown overlay function
+async function showCountdownOverlay() {
+  const overlay = document.getElementById('overlay');
+  const container = document.getElementById('countdownContainer');
+  container.innerHTML = '';
+  overlay.classList.add('show');
+
+  for (let c = 3; c > 0; c--) {
+    const div = document.createElement('div');
+    div.className = 'countdown-number';
+    div.textContent = c;
+    container.appendChild(div);
+    void div.offsetWidth;
+    await new Promise(r => setTimeout(r, 1000));
+    container.removeChild(div);
+  }
+  overlay.classList.add('fade-out');
+  setTimeout(() => {
+    overlay.classList.remove('show', 'fade-out');
+  }, 1000);
+}
+
+function scrollToWinners() {
+  const container = document.getElementById('winnersContainer');
+  if (container) {
+    setTimeout(() => {
+      container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+  }
 }
 
 async function shuffleWithSHA256(array, seed) {
@@ -198,13 +226,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // 初始化剩餘列表
   const initialParticipants = document.getElementById('nameList').value
     .split('\n').map(n => n.trim()).filter(n => n !== '');
   updateParticipantCount(initialParticipants.length);
-  if (!document.getElementById('allowRepeatCheckbox').checked) {
-    renderRemainingList(initialParticipants);
-  }
 
   document.getElementById('drawButton').addEventListener('click', async function () {
     const textarea = document.getElementById('nameList');
@@ -243,30 +267,16 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    // Show overlay countdown
+    await showCountdownOverlay();
+
     const shuffled = await shuffleWithSHA256(participants, seed);
     const winners = shuffled.slice(0, winnerCount);
 
     const winnersContainer = document.getElementById('winnersContainer');
     winnersContainer.innerHTML = '';
-    const countdownEl = document.createElement('div');
-    countdownEl.className = 'col-12 text-center countdown';
-    winnersContainer.appendChild(countdownEl);
 
-    for (let c = 3; c > 0; c--) {
-      countdownEl.textContent = `倒數 ${c}...`;
-      countdownEl.classList.remove('countdown');
-      void countdownEl.offsetWidth;
-      countdownEl.classList.add('countdown');
-      await new Promise(r => setTimeout(r, 800));
-    }
-    countdownEl.remove();
-
-    confetti({
-      particleCount: 150,
-      spread: 100,
-      origin: { y: 0.6 }
-    });
-
+    // Display winners
     winners.forEach((name, index) => {
       const col = document.createElement('div');
       col.className = 'col-md-4';
@@ -287,6 +297,9 @@ document.addEventListener('DOMContentLoaded', () => {
       col.appendChild(card);
       winnersContainer.appendChild(col);
     });
+
+    // Auto-scroll to winners
+    scrollToWinners();
 
     if (!allowRepeat) {
       winners.forEach(w => {
