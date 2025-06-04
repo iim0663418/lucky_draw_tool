@@ -28,7 +28,6 @@ body { background-color: #f8f9fa; }
 }
 #remainingWrapper {
   margin-top: 1rem;
-  display: none;
 }
 .fadeInList li {
   opacity: 0;
@@ -37,4 +36,22 @@ body { background-color: #f8f9fa; }
 @keyframes fadeInItem {
   from { opacity: 0; }
   to   { opacity: 1; }
+}
+
+/* RWD 調整 */
+@media (max-width: 575.98px) {
+  h1 { font-size: 1.5rem; }
+  .btn-lg { font-size: 1rem; padding: 0.5rem 1rem; }
+  #remainingWrapper { display: none !important; }
+  .winner-card { animation: none; }
+  .mb-4 { margin-bottom: 1.5rem !important; }
+  .py-5 { padding-top: 3rem !important; padding-bottom: 3rem !important; }
+  textarea, input, .btn { width: 100%; box-sizing: border-box; }
+}
+@media (min-width: 576px) and (max-width: 767.98px) {
+  h1 { font-size: 2rem; }
+  .btn-lg { font-size: 1.25rem; padding: 0.75rem 1.5rem; }
+}
+@media (min-width: 768px) {
+  #remainingWrapper { display: block !important; }
 }

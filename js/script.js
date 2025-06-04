@@ -21,7 +21,7 @@ function populatePrizeOptions() {
   const select = document.getElementById('prizeFilter');
   const current = select.value;
   const prizes = Array.from(new Set(historyList.map(item => item.prize)));
-  select.innerHTML = '<option value=\"全部\">全部</option>';
+  select.innerHTML = '<option value="全部">全部</option>';
   prizes.forEach(name => {
     const opt = document.createElement('option');
     opt.value = name;
@@ -39,13 +39,13 @@ function getFilteredList(prizeName) {
 }
 
 function renderHistoryPage(list, page) {
-  const container = document.getElementById('historyContainer');
+  const container = document.getElementById('historyContainerContent');
   container.innerHTML = '';
   const start = (page - 1) * PAGE_SIZE;
   const pageItems = list.slice(start, start + PAGE_SIZE);
 
   if (pageItems.length === 0) {
-    container.innerHTML = '<div class=\"alert alert-info\">尚無此品項抽獎紀錄。</div>';
+    container.innerHTML = '<div class="alert alert-info">尚無此品項抽獎紀錄。</div>';
   } else {
     pageItems.forEach(record => {
       const card = document.createElement('div');
@@ -72,8 +72,8 @@ function renderPagination(totalItems) {
   if (totalPages <= 1) return;
 
   const prevLi = document.createElement('li');
-  prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
-  prevLi.innerHTML = `<button class="page-link">上一頁</button>`;
+  prevLi.className = \`page-item \${currentPage === 1 ? 'disabled' : ''}\`;
+  prevLi.innerHTML = \`<button class="page-link">上一頁</button>\`;
   prevLi.onclick = () => {
     if (currentPage > 1) {
       currentPage--;
@@ -84,8 +84,8 @@ function renderPagination(totalItems) {
 
   for (let i = 1; i <= totalPages; i++) {
     const li = document.createElement('li');
-    li.className = `page-item ${currentPage === i ? 'active' : ''}`;
-    li.innerHTML = `<button class="page-link">${i}</button>`;
+    li.className = \`page-item \${currentPage === i ? 'active' : ''}\`;
+    li.innerHTML = \`<button class="page-link">\${i}</button>\`;
     li.onclick = () => {
       currentPage = i;
       updateHistoryDisplay();
@@ -94,8 +94,8 @@ function renderPagination(totalItems) {
   }
 
   const nextLi = document.createElement('li');
-  nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
-  nextLi.innerHTML = `<button class="page-link">下一頁</button>`;
+  nextLi.className = \`page-item \${currentPage === totalPages ? 'disabled' : ''}\`;
+  nextLi.innerHTML = \`<button class="page-link">下一頁</button>\`;
   nextLi.onclick = () => {
     if (currentPage < totalPages) {
       currentPage++;
@@ -126,7 +126,7 @@ function renderRemainingList(participants) {
     participants.forEach((p, idx) => {
       const li = document.createElement('li');
       li.textContent = p;
-      li.style.animationDelay = `${idx * 0.1}s`;
+      li.style.animationDelay = \`\${idx * 0.1}s\`;
       ul.appendChild(li);
     });
     remainingContainer.appendChild(ul);
@@ -137,10 +137,13 @@ function handleAllowRepeatToggle() {
   const allowRepeat = document.getElementById('allowRepeatCheckbox').checked;
   const remainingWrapper = document.getElementById('remainingWrapper');
   if (allowRepeat) {
-    remainingWrapper.style.display = 'none';
-    document.getElementById('remainingContainer').innerHTML = '';
+    // 收合剩餘列表
+    const collapseInstance = bootstrap.Collapse.getInstance(remainingWrapper) || new bootstrap.Collapse(remainingWrapper, { toggle: false });
+    collapseInstance.hide();
   } else {
-    remainingWrapper.style.display = 'block';
+    // 展開剩餘列表
+    const collapseInstance = bootstrap.Collapse.getInstance(remainingWrapper) || new bootstrap.Collapse(remainingWrapper, { toggle: false });
+    collapseInstance.show();
     const participants = document.getElementById('nameList').value
       .split('\n').map(n => n.trim()).filter(n => n !== '');
     updateParticipantCount(participants.length);
@@ -195,9 +198,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // 初始化剩餘列表
   const initialParticipants = document.getElementById('nameList').value
     .split('\n').map(n => n.trim()).filter(n => n !== '');
   updateParticipantCount(initialParticipants.length);
+  if (!document.getElementById('allowRepeatCheckbox').checked) {
+    renderRemainingList(initialParticipants);
+  }
 
   document.getElementById('drawButton').addEventListener('click', async function () {
     const textarea = document.getElementById('nameList');
