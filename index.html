@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>誰是幸運兒？紀念品抽獎</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="css/style.css" rel="stylesheet" />
+</head>
+<body>
+  <div class="container py-5">
+    <h1 class="text-center mb-4">誰是幸運兒？紀念品抽獎 🎁</h1>
+    <div class="row mb-3">
+      <div class="col-md-4 mb-3">
+        <label for="nameList" class="form-label">請輸入參與者，每行一位：</label>
+        <textarea class="form-control" id="nameList" rows="8"></textarea>
+      </div>
+      <div class="col-md-4 mb-3">
+        <label for="prizeInput" class="form-label">抽獎品項：</label>
+        <input type="text" class="form-control" id="prizeInput" placeholder="例如：禮物A" />
+      </div>
+      <div class="col-md-4 mb-3">
+        <label for="seedInput" class="form-label">亂數種子（可留空使用系統時間）：</label>
+        <input type="text" class="form-control" id="seedInput" placeholder="例如：123456 或 luckyday2024" />
+      </div>
+      <div class="col-md-3 mb-3">
+        <label for="winnerCount" class="form-label">得獎人數：</label>
+        <input type="number" class="form-control" id="winnerCount" value="5" min="1" placeholder="輸入數字" />
+      </div>
+    </div>
+    <div class="text-center mb-4">
+      <button id="drawButton" class="btn btn-primary btn-lg px-5">🎲 開始抽獎！</button>
+    </div>
+    <div class="mt-4 text-center" id="seedDisplayBlock" style="display:none;">
+      <h5>使用的亂數種子值：</h5>
+      <p id="seedDisplay" class="text-muted"></p>
+    </div>
+    <div class="mt-4 mb-5">
+      <h4>🎯 抽中名單：</h4>
+      <div id="winnersContainer" class="row gy-3"></div>
+    </div>
+
+    <hr />
+
+    <div class="mt-4">
+      <h4>📜 歷史紀錄</h4>
+      <div class="row mb-3">
+        <div class="col-md-4">
+          <label for="prizeFilter" class="form-label">請選擇品項：</label>
+          <select id="prizeFilter" class="form-select">
+            <option value="全部">全部</option>
+          </select>
+        </div>
+        <div class="col-md-4 align-self-end">
+          <button id="clearHistory" class="btn btn-danger">清除全部紀錄</button>
+        </div>
+      </div>
+      <div id="historyContainer"></div>
+    </div>
+  </div>
+
+  <!-- 引入 confetti 函式庫 -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.4.0/dist/confetti.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="js/script.js"></script>
+</body>
+</html>
