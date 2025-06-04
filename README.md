@@ -1,3 +1,5 @@
+example:
+https://iim0663418.github.io/lucky_draw_tool/
 特別感謝：
 https://shuffler.pdis.tw
 
