@@ -3,17 +3,18 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>誰是幸運兒？紀念品抽獎</title>
+  <title>moda 抽獎小程式</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="css/style.css" rel="stylesheet" />
 </head>
 <body>
   <div class="container py-5">
-    <h1 class="text-center mb-4">誰是幸運兒？紀念品抽獎 🎁</h1>
+    <h1 class="text-center mb-4">moda 抽獎小程式 🎁</h1>
     <div class="row mb-3">
       <div class="col-md-4 mb-3">
-        <label for="nameList" class="form-label">請輸入參與者，每行一位：</label>
+        <label for="nameList" class="form-label">參與者清單（每行一位）：</label>
         <textarea class="form-control" id="nameList" rows="8"></textarea>
+        <p id="participantCount" class="mt-2 text-muted">目前參與者 0 人</p>
       </div>
       <div class="col-md-4 mb-3">
         <label for="prizeInput" class="form-label">抽獎品項：</label>
@@ -27,6 +28,13 @@
         <label for="winnerCount" class="form-label">得獎人數：</label>
         <input type="number" class="form-control" id="winnerCount" value="5" min="1" placeholder="輸入數字" />
       </div>
+      <div class="col-md-4 mb-3">
+        <div class="form-check mt-4">
+          <input class="form-check-input" type="checkbox" id="allowRepeatCheckbox">
+          <label class="form-check-label" for="allowRepeatCheckbox">允許重複中獎</label>
+        </div>
+        <small id="repeatHelp" class="form-text text-muted">不勾選時，會從名單移除中獎者。</small>
+      </div>
     </div>
     <div class="text-center mb-4">
       <button id="drawButton" class="btn btn-primary btn-lg px-5">🎲 開始抽獎！</button>
@@ -35,13 +43,15 @@
       <h5>使用的亂數種子值：</h5>
       <p id="seedDisplay" class="text-muted"></p>
     </div>
-    <div class="mt-4 mb-5">
-      <h4>🎯 抽中名單：</h4>
+    <div class="mt-4 mb-3">
+      <h4>🎯 中獎名單：</h4>
       <div id="winnersContainer" class="row gy-3"></div>
     </div>
-
+    <div id="remainingWrapper">
+      <h6>剩餘參與者清單：</h6>
+      <div id="remainingContainer" class="fadeInList"></div>
+    </div>
     <hr />
-
     <div class="mt-4">
       <h4>📜 歷史紀錄</h4>
       <div class="row mb-3">
@@ -56,12 +66,16 @@
         </div>
       </div>
       <div id="historyContainer"></div>
+      <nav class="pagination-container">
+        <ul id="paginationContainer" class="pagination"></ul>
+      </nav>
     </div>
   </div>
 
   <!-- 引入 confetti 函式庫 -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.4.0/dist/confetti.browser.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
   <script src="js/script.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

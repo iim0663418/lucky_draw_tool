@@ -20,6 +20,21 @@ body { background-color: #f8f9fa; }
   50% { opacity: 1; transform: scale(1.2); }
   100% { opacity: 0; transform: scale(0.8); }
 }
-.history-card {
-  margin-bottom: 1rem;
+.history-card { margin-bottom: 1rem; }
+.pagination-container {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: center;
+}
+#remainingWrapper {
+  margin-top: 1rem;
+  display: none;
+}
+.fadeInList li {
+  opacity: 0;
+  animation: fadeInItem 0.4s ease-in-out forwards;
+}
+@keyframes fadeInItem {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
