@@ -74,197 +74,22 @@ https://shuffler.pdis.tw
 9. **授權條款:**
    本專案採用【Apache-2.0 License】，詳細內容請參考 `LICENSE` 檔案，允許任何人自由使用、修改與再散布，惟須保留原始版權與授權聲明。
 
-10. **更新說明：全頁倒數遮罩與自動滾動功能**
+10. **設計變更與改進**
 
-    1. **新增全頁倒數遮罩結構（`index.html`）**
+    本次更新主要引入了「全頁倒數遮罩」與「自動滾動」功能，顯著提升了使用者體驗與視覺效果。
 
-       ```html
-       <!-- 倒數遮罩 Start -->
-       <div id="overlay" class="overlay">
-         <div class="blur-bg"></div>
-         <div id="countdownContainer" class="countdown-container"></div>
-       </div>
-       <!-- 倒數遮罩 End -->
-       ```
+    *   **全頁倒數遮罩：**
+        *   **舊設計：** 倒數動畫可能直接在頁面某個區域顯示，缺乏全域性的視覺焦點。
+        *   **新設計：** 引入了覆蓋整個頁面的倒數遮罩（`#overlay`），並帶有半透明模糊背景（`.blur-bg`），確保倒數過程成為視覺中心，提升抽獎的儀式感與期待感。倒數數字（`.countdown-number`）具有獨立的淡入淡出動畫，且遮罩在倒數結束後會平滑淡出。
 
-       * `#overlay`：整個遮罩元素，初始隱藏，透過 `.show` 類別切換顯示。
-       * `.blur-bg`：背景半透明模糊層，用於視覺上聚焦倒數數字。
-       * `#countdownContainer`：顯示倒數數字的容器，動畫結束後會移除該子元素。
+    *   **自動滾動至中獎名單：**
+        *   **舊設計：** 使用者可能需要手動滾動頁面才能看到中獎結果，尤其是在長頁面或行動裝置上。
+        *   **新設計：** 在倒數結束並中獎卡片渲染完成後，頁面會自動平滑滾動至「中獎名單」區塊（`#winnersContainer`）的頂端，讓使用者無需手動操作即可立即看到結果，提升操作流暢性。
 
-    2. **新增遮罩與倒數樣式（`css/style.css`）**
+    *   **程式碼結構調整：**
+        *   相關的 HTML 結構（`index.html`）、CSS 樣式（`css/style.css`）和 JavaScript 邏輯（`js/script.js`）已進行相應的增補與調整，以支援上述新功能。
+        *   `showCountdownOverlay()` 函數負責控制倒數動畫與遮罩顯示隱藏。
+        *   `scrollToWinners()` 函數負責實現自動滾動。
+        *   `drawButton` 的點擊事件邏輯已更新，以整合倒數遮罩的顯示與自動滾動的觸發。
 
-       ```css
-       /* 全頁遮罩 */
-       .overlay {
-         display: none !important;
-         position: fixed;
-         top: 0; left: 0;
-         width: 100%; height: 100%;
-         background: rgba(0, 0, 0, 0.8);
-         z-index: 9999;
-         align-items: center;
-         justify-content: center;
-         flex-direction: column;
-       }
-       .overlay.show {
-         display: flex !important;
-       }
-       .blur-bg {
-         position: absolute;
-         top: 0; left: 0;
-         width: 100%; height: 100%;
-         background: rgba(0, 0, 0, 0.4);
-         backdrop-filter: blur(10px);
-         -webkit-backdrop-filter: blur(10px);
-         z-index: 1;
-       }
-       /* 倒數數字動畫 */
-       .countdown-number {
-         font-size: 6rem;
-         color: #fff;
-         animation: countdownFade 1s ease-in-out;
-         position: relative;
-         z-index: 2;
-       }
-       @keyframes countdownFade {
-         0%   { opacity: 0; transform: scale(0.8); }
-         50%  { opacity: 1; transform: scale(1.2); }
-         100% { opacity: 0; transform: scale(0.8); }
-       }
-       /* 遮罩淡出動畫 */
-       .overlay.fade-out {
-         animation: overlayFade 1s forwards;
-       }
-       @keyframes overlayFade {
-         0%   { background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(10px); }
-         100% { background: rgba(0, 0, 0, 0); backdrop-filter: blur(0px); }
-       }
-       ```
-
-       * `.overlay` / `.overlay.show`：控制遮罩的顯示與隱藏。
-       * `.blur-bg`：實現背景模糊效果，增強倒數焦點。
-       * `.countdown-number`：每個倒數數字淡入淡出動畫。
-       * `.overlay.fade-out`：遮罩淡出過渡，倒數結束後先淡出效果再隱藏。
-
-    3. **新增倒數與自動滾動邏輯（`js/script.js`）**
-
-       ```js
-       // 顯示倒數遮罩
-       async function showCountdownOverlay() {
-         const overlay = document.getElementById('overlay');
-         const container = document.getElementById('countdownContainer');
-         container.innerHTML = '';
-         overlay.classList.add('show'); // 顯示遮罩
-
-         for (let c = 3; c > 0; c--) {
-           const div = document.createElement('div');
-           div.className = 'countdown-number';
-           div.textContent = c;
-           container.appendChild(div);
-           void div.offsetWidth; // 觸發動畫重播
-           await new Promise(r => setTimeout(r, 1000));
-           container.removeChild(div);
-         }
-         // 倒數結束後淡出遮罩
-         overlay.classList.add('fade-out');
-         setTimeout(() => {
-           overlay.classList.remove('show', 'fade-out');
-         }, 1000);
-       }
-
-       // 自動平滑滾動至中獎名單
-       function scrollToWinners() {
-         const container = document.getElementById('winnersContainer');
-         if (container) {
-           setTimeout(() => {
-             container.scrollIntoView({ behavior: 'smooth', block: 'start' });
-           }, 100); // 100ms 延遲以確保卡片已渲染
-         }
-       }
-
-       document.getElementById('drawButton').addEventListener('click', async function () {
-         this.disabled = true;
-         this.textContent = '抽取中…';
-
-         // 驗證參與者、種子與得獎人數
-         // … 略 …
-
-         // 1) 顯示全頁倒數遮罩
-         await showCountdownOverlay();
-
-         // 2) 進行抽獎並渲染中獎卡片
-         const shuffled = await shuffleWithSHA256(participants, seed);
-         const winners = shuffled.slice(0, winnerCount);
-         winnersContainer.innerHTML = '';
-         winners.forEach((name, index) => {
-           const col = document.createElement('div');
-           col.className = 'col-md-4';
-           const card = document.createElement('div');
-           card.className = 'card winner-card';
-           card.style.animationDelay = `${index * 0.2}s`;
-           const cardBody = document.createElement('div');
-           cardBody.className = 'card-body text-center';
-           const title = document.createElement('h5');
-           title.className = 'card-title';
-           title.textContent = `🎉 ${name}`;
-           const subtitle = document.createElement('p');
-           subtitle.className = 'card-text text-muted';
-           subtitle.textContent = '恭喜中獎！';
-           cardBody.appendChild(title);
-           cardBody.appendChild(subtitle);
-           card.appendChild(cardBody);
-           col.appendChild(card);
-           winnersContainer.appendChild(col);
-         });
-
-         // 3) 自動滾動至「中獎名單」
-         scrollToWinners();
-
-         // 4) 更新剩餘名單與歷史紀錄
-         // … 略 …
-
-         // 5) 恢復按鈕狀態
-         setTimeout(() => {
-           this.disabled = false;
-           this.textContent = '🎲 開始抽獎！';
-         }, 500);
-       });
-       ```
-
-       * **`showCountdownOverlay()`**：觸發全頁遮罩、顯示「3、2、1」倒數，並在倒數結束後淡出遮罩；
-       * **`scrollToWinners()`**：倒數結束並渲染完卡片後，自動將畫面平滑捲動至卡片區頂端；
-       * **整合在 `drawButton` 點擊事件**：依序呼叫倒數、抽獎、渲染與自動滾動。
-
-    4. **更新「歷史紀錄」渲染容器**
-
-       * 原先使用 `#historyContainerContent`，改回使用 `#historyContainer`，以保持結構一致；
-       * 若需保留內容分層，可透過新增內層容器並調整對應 ID 及 `renderHistoryPage()` 內寫入目標。
-
-    5. **其他輔助邏輯與原有功能維持不變**
-
-       * `shuffleWithSHA256(array, seed)`：維持原有 Web Crypto API 洗牌邏輯；
-       * 「剩餘參與者渲染」、「歷史紀錄分頁」等功能保留，以確保核心體驗不受影響。
-
----
-
-## 6. 測試與驗證
-
-1. **功能測試**
-
-   * 點擊「🎲 開始抽獎！」後，應顯示全頁倒數遮罩並播放「3…2…1」倒數動畫；
-   * 倒數結束後，遮罩應平滑淡出並自動將畫面捲動至 「中獎名單」區塊頂端；
-   * 中獎卡片應正確依序渲染，並顯示「恭喜中獎」提示；
-   * 如果勾選「允許重複中獎」，則中獎者不會從名單移除；反之，應自動更新「剩餘參與者清單」；
-   * 歷史紀錄可正確以「品項篩選」與「分頁」方式呈現，並可清除全部紀錄。
-
-2. **相容性檢測**
-
-   * 在桌面與行動裝置上分別測試，確保倒數遮罩與自動滾動在小螢幕亦能正常運作；
-   * 若「blur (模糊)」效果在某些瀏覽器失效，應檢查 `backdrop-filter` 是否支援，並使用 CSS fallback（如純半透明背景）；
-   * 確認 `scrollIntoView({ behavior: 'smooth' })` 在行動瀏覽器是否支援，若不支援可改用 `window.scrollTo({ top: ..., behavior: 'auto' })`。
-
-3. **性能與流暢度**
-
-   * 大量中獎卡片渲染後，會自動滾動至頂端，不會因卡片過多而卡頓；
-   * 倒數遮罩與卡片動畫皆採 CSS 動畫，確保在不同裝置都能保持流暢；
-   * 小螢幕上關閉卡片放大動畫與折疊「剩餘參與者清單」，減少不必要渲染成本。
+    這些改進旨在提供更沉浸、更便捷的抽獎體驗。

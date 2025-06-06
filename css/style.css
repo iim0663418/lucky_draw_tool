@@ -1,42 +1,338 @@
-body { background-color: #f8f9fa; }
+:root {
+  /* 日間模式 (Light Mode) */
+  --primary-color-light: #1a1a1a; /* 深黑 */
+  --primary-darker-light: #3e4346; /* 稍淺的黑 */
+  --secondary-color-light: #f3f5f6; /* 淺灰色背景 */
+  --accent-color-light: #2ECC71; /* 亮綠色 */
+  --accent-color-hover-light: #27ae60; /* 亮綠色懸停 */
+  --text-dark-light: #1a1a1a; /* 主要文字顏色 */
+  --text-light-light: #FFFFFF; /* 用於深色背景上的文字 */
+  --text-muted-light: #565e62; /* 輔助文字顏色 */
+  --card-bg-light: #FFFFFF; /* 卡片背景 */
+  --input-border-light: #ced4da; /* 輸入框邊框 */
+  --input-focus-border-light: #1a1a1a; /* 輸入框焦點邊框 */
+  --input-focus-shadow-light: rgba(26, 26, 26, .25); /* 焦點陰影 */
+
+  /* 夜間模式 (Dark Mode) */
+  --primary-color-dark: #e9ecef; /* 淺灰 */
+  --primary-darker-dark: #adb5bd; /* 稍深的淺灰 */
+  --secondary-color-dark: #212529; /* 深黑背景 */
+  --accent-color-dark: #38d980; /* 夜間模式強調色 (稍亮) */
+  --accent-color-hover-dark: #32c071;
+  --text-dark-dark: #e9ecef; /* 主要文字顏色 */
+  --text-light-dark: #1a1a1a; /* 用於淺色背景上的文字 */
+  --text-muted-dark: #6c757d; /* 輔助文字顏色 */
+  --card-bg-dark: #343a40; /* 卡片背景 */
+  --input-border-dark: #495057; /* 輸入框邊框 */
+  --input-focus-border-dark: #e9ecef; /* 輸入框焦點邊框 */
+  --input-focus-shadow-dark: rgba(233, 236, 239, .25); /* 焦點陰影 */
+
+  --accent-red: #DC3545; /* 保留用於清除按鈕等 */
+
+  --font-body: 'Noto Sans TC', sans-serif;
+  --font-heading: 'Noto Sans TC', sans-serif; /* 統一字體 */
+  --border-radius-sm: .25rem;
+  --border-radius-md: .5rem;
+  --border-radius-lg: 1rem;
+  --shadow-sm: 0 .125rem .25rem rgba(0,0,0,.075);
+  --shadow-md: 0 .5rem 1rem rgba(0,0,0,.15);
+
+  /* 初始主題變數 (會被 JS 切換) */
+  --current-primary: var(--primary-color-light);
+  --current-primary-darker: var(--primary-darker-light);
+  --current-secondary: var(--secondary-color-light);
+  --current-accent: var(--accent-color-light);
+  --current-accent-hover: var(--accent-color-hover-light);
+  --current-text-dark: var(--text-dark-light);
+  --current-text-light: var(--text-light-light);
+  --current-text-muted: var(--text-muted-light);
+  --current-card-bg: var(--card-bg-light);
+  --current-input-border: var(--input-border-light);
+  --current-input-focus-border: var(--input-focus-border-light);
+  --current-input-focus-shadow: var(--input-focus-shadow-light);
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--current-secondary);
+  color: var(--current-text-dark);
+  line-height: 1.6;
+  padding-top: 20px;
+  padding-bottom: 20px;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+@keyframes backgroundFlash {
+  0% { background-color: var(--current-secondary); }
+  30% { background-color: var(--current-accent); filter: brightness(1.2); } /* Brighter flash */
+  70% { background-color: var(--current-accent); filter: brightness(1.2); }
+  100% { background-color: var(--current-secondary); filter: brightness(1); }
+}
+
+.flash-background {
+  animation: backgroundFlash 0.4s ease-in-out; /* Slightly longer duration */
+}
+
+body.dark {
+  --current-primary: var(--primary-color-dark);
+  --current-primary-darker: var(--primary-darker-dark);
+  --current-secondary: var(--secondary-color-dark);
+  --current-accent: var(--accent-color-dark);
+  --current-accent-hover: var(--accent-color-hover-dark);
+  --current-text-dark: var(--text-dark-dark);
+  --current-text-light: var(--text-light-dark);
+  --current-text-muted: var(--text-muted-dark);
+  --current-card-bg: var(--card-bg-dark);
+  --current-input-border: var(--input-border-dark);
+  --current-input-focus-border: var(--input-focus-border-dark);
+  --current-input-focus-shadow: var(--input-focus-shadow-dark);
+}
+
+.app-header {
+  background-color: var(--current-primary);
+  color: var(--current-text-light);
+  border-bottom-left-radius: var(--border-radius-lg);
+  border-bottom-right-radius: var(--border-radius-lg);
+  box-shadow: var(--shadow-md);
+  margin-bottom: 2rem;
+}
+
+.app-header h1 {
+  font-family: var(--font-heading);
+  font-size: 2.5rem;
+  margin-bottom: 0;
+  font-weight: 700; /* 加粗標題 */
+}
+
+.header-icon {
+  font-size: 2rem;
+  vertical-align: middle;
+}
+
+.section-title {
+  font-family: var(--font-heading);
+  color: var(--current-primary-darker);
+  font-size: 2rem;
+  margin-bottom: 1.5rem !important;
+  font-weight: 700; /* 加粗標題 */
+}
+.section-title-sm {
+  font-family: var(--font-heading);
+  color: var(--current-primary-darker);
+  font-size: 1.5rem;
+  font-weight: 700; /* 加粗標題 */
+}
+
+.card {
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--current-input-border); /* 為卡片增加細邊框 */
+  background-color: var(--current-card-bg);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+.card-body {
+  padding: 1.5rem;
+}
+
+.form-label {
+  font-weight: bold;
+  color: var(--current-primary);
+}
+
+.form-control, .form-select {
+  border-radius: var(--border-radius-sm);
+  border: 1px solid var(--current-input-border);
+  background-color: var(--current-card-bg);
+  color: var(--current-text-dark);
+  transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out, background-color 0.3s ease, color 0.3s ease;
+}
+
+.form-control:focus, .form-select:focus {
+  border-color: var(--current-input-focus-border);
+  box-shadow: 0 0 0 .25rem var(--current-input-focus-shadow), 0 0 8px var(--current-input-focus-shadow); /* 增強焦點效果 */
+  outline: none; /* 移除預設 outline */
+}
+
+.btn {
+  border-radius: var(--border-radius-sm);
+  font-weight: bold;
+  padding: .5rem 1rem;
+  transition: transform .2s ease-out, box-shadow .2s ease-out, background-color .2s ease, border-color .2s ease;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn:active {
+  transform: translateY(0px);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-draw {
+  background-color: var(--current-accent);
+  border-color: var(--current-accent);
+  color: #FFFFFF; /* 強調按鈕文字固定為白色以確保對比 */
+  font-size: 1.35rem;
+  font-weight: bold;
+  padding: .85rem 2.2rem;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.2), 0 2px 5px rgba(0,0,0,0.15);
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+}
+.btn-draw:hover {
+  background-color: var(--current-accent-hover);
+  border-color: var(--current-accent-hover);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.25), 0 3px 7px rgba(0,0,0,0.2);
+  transform: translateY(-3px);
+}
+
+.btn-clear-history {
+  background-color: var(--accent-red);
+  border-color: var(--accent-red);
+  color: var(--text-light-light); /* 清除按鈕文字固定為白色 */
+}
+.btn-clear-history:hover {
+  background-color: #c82333;
+  border-color: #bd2130;
+}
+
+#participantCount, #repeatHelp, .small {
+  font-size: 0.875em;
+  color: var(--current-text-muted);
+}
+
+/* Winner Card Styling */
 .winner-card {
   opacity: 0;
   transform: scale(0.8);
-  animation: popIn 0.8s ease-in-out forwards;
+  animation: popIn 0.9s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
 }
 @keyframes popIn {
-  0% { opacity: 0; transform: scale(0.5) rotate(-10deg); }
-  60% { opacity: 1; transform: scale(1.2) rotate(5deg); }
-  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+  0% { opacity: 0; transform: scale(0.3) rotate(-20deg) translateY(50px); }
+  70% { opacity: 1; transform: scale(1.1) rotate(5deg) translateY(-10px); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg) translateY(0px); }
 }
-.countdown {
-  font-size: 2rem;
+
+/* Animation for winner name text */
+@keyframes winnerNameFlash {
+  0%, 100% { text-shadow: 1px 1px 0px var(--current-primary-darker), 2px 2px 0px var(--current-primary-darker), 3px 3px 3px rgba(0,0,0,0.3); opacity: 1; }
+  50% { text-shadow: 0 0 10px var(--current-accent), 0 0 20px var(--current-accent), 1px 1px 0px var(--current-primary-darker); opacity: 0.8; transform: scale(1.05); }
+}
+
+.highlight-winner .card-body {
+  background-image: linear-gradient(45deg, var(--current-accent), var(--current-primary-darker));
+  border: 4px solid var(--current-card-bg);
+  border-radius: var(--border-radius-lg);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.3);
+  padding: 2rem;
+  animation: pulseWinnerBorder 1.5s infinite, subtleTilt 10s infinite alternate ease-in-out;
+  position: relative;
+  overflow: hidden;
+  text-align: center;
+}
+
+.highlight-winner .card-body::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23FFFFFF' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  opacity: 0.5;
+  z-index: 0;
+}
+
+@keyframes pulseWinnerBorder {
+  0% { border-color: var(--current-text-light); box-shadow: 0 12px 24px rgba(0,0,0,0.3), 0 0 5px var(--current-text-light), 0 0 10px var(--current-text-light), 0 0 15px var(--current-accent), 0 0 20px var(--current-accent); }
+  50% { border-color: var(--current-accent); box-shadow: 0 12px 30px rgba(0,0,0,0.4), 0 0 10px var(--current-text-light), 0 0 15px var(--current-accent), 0 0 20px var(--current-primary), 0 0 25px var(--current-primary); }
+  100% { border-color: var(--current-text-light); box-shadow: 0 12px 24px rgba(0,0,0,0.3), 0 0 5px var(--current-text-light), 0 0 10px var(--current-text-light), 0 0 15px var(--current-accent), 0 0 20px var(--current-accent); }
+}
+
+@keyframes subtleTilt {
+  0% { transform: rotate(-1deg) scale(1); }
+  100% { transform: rotate(1deg) scale(1); }
+}
+
+.highlight-winner .card-title {
+  font-family: var(--font-heading);
+  color: #FFFFFF;
+  font-size: 2.3rem;
   font-weight: bold;
-  color: #dc3545;
-  animation: fadeInOut 1s ease-in-out;
+  text-shadow: 1px 1px 0px var(--current-primary-darker),
+               2px 2px 0px var(--current-primary-darker),
+               3px 3px 3px rgba(0,0,0,0.3);
+  letter-spacing: 1px;
+  -webkit-text-stroke: 0.5px var(--current-primary-darker);
+  text-stroke: 0.5px var(--current-primary-darker);
+  position: relative;
+  z-index: 1;
+  margin-bottom: 0.5rem;
+  animation: winnerNameFlash 0.8s 1s ease-in-out; /* 延遲1秒執行，配合卡片入場 */
 }
-@keyframes fadeInOut {
-  0% { opacity: 0; transform: scale(0.8); }
-  50% { opacity: 1; transform: scale(1.2); }
-  100% { opacity: 0; transform: scale(0.8); }
+.highlight-winner .card-text {
+    color: #FFFFFF;
+    font-weight: bold;
+    font-size: 1.1rem;
+    position: relative;
+    z-index: 1;
+    text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
 }
-.history-card { margin-bottom: 1rem; }
-.pagination-container {
-  margin-top: 1rem;
-  display: flex;
-  justify-content: center;
+
+
+/* History Card Styling */
+.history-card {
+  background-color: var(--current-card-bg);
+  border-radius: var(--border-radius-sm);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 1rem;
+  transition: background-color 0.3s ease;
 }
-#remainingWrapper {
-  margin-top: 1rem;
-  display: none;
+.history-card .card-title {
+  color: var(--current-primary);
+  font-size: 1.25rem;
+}
+.history-card .card-subtitle {
+  font-size: 0.9rem;
+  color: var(--current-text-muted);
+}
+
+/* Pagination */
+.pagination .page-item .page-link {
+  color: var(--current-primary);
+  background-color: var(--current-card-bg);
+  border-color: var(--current-input-border);
+  border-radius: var(--border-radius-sm);
+  margin: 0 .25rem;
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+.pagination .page-item.active .page-link {
+  background-color: var(--current-primary);
+  border-color: var(--current-primary);
+  color: var(--current-text-light);
+}
+.pagination .page-item.disabled .page-link {
+  color: var(--current-text-muted);
+  background-color: transparent;
+}
+
+/* Remaining List */
+.remaining-section .card-body {
+  background-color: var(--current-secondary);
+  transition: background-color 0.3s ease;
 }
 .fadeInList li {
   opacity: 0;
   animation: fadeInItem 0.4s ease-in-out forwards;
+  background-color: var(--current-card-bg);
+  padding: 0.5rem 1rem;
+  margin-bottom: 0.5rem;
+  border-radius: var(--border-radius-sm);
+  box-shadow: var(--shadow-sm);
+  color: var(--current-text-dark); /* 確保列表項目文字顏色隨主題變化 */
 }
 @keyframes fadeInItem {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from { opacity: 0; transform: translateX(-20px); }
+  to   { opacity: 1; transform: translateX(0); }
 }
 
 /* Overlay styles */
@@ -45,7 +341,7 @@ body { background-color: #f8f9fa; }
   position: fixed;
   top: 0; left: 0;
   width: 100%; height: 100%;
-  background: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.85);
   z-index: 9999;
   align-items: center;
   justify-content: center;
@@ -58,49 +354,80 @@ body { background-color: #f8f9fa; }
   position: absolute;
   top: 0; left: 0;
   width: 100%; height: 100%;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: 1;
 }
 .countdown-number {
-  font-size: 6rem;
-  color: #fff;
-  animation: countdownFade 1s ease-in-out;
+  font-family: var(--font-heading);
+  font-size: 8rem;
+  color: var(--text-light-light); /* 倒數數字固定為白色 */
+  animation: countdownZoom 1s ease-in-out;
   position: relative;
   z-index: 2;
+  text-shadow: 0 0 15px rgba(0,0,0,0.5);
 }
-@keyframes countdownFade {
-  0%   { opacity: 0; transform: scale(0.8); }
-  50%  { opacity: 1; transform: scale(1.2); }
-  100% { opacity: 0; transform: scale(0.8); }
+@keyframes countdownZoom {
+  0%   { opacity: 0; transform: scale(0.5); }
+  50%  { opacity: 1; transform: scale(1.1); }
+  100% { opacity: 0; transform: scale(0.5); }
 }
 .overlay.fade-out {
-  animation: overlayFade 1s forwards;
+  animation: overlayFade 0.8s forwards;
 }
 @keyframes overlayFade {
-  0%   { background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(10px); }
-  100% { background: rgba(0, 0, 0, 0); backdrop-filter: blur(0px); }
+  from { opacity: 1; }
+  to   { opacity: 0; }
 }
 
-/* RWD 調整 */
+.app-footer {
+  background-color: var(--current-secondary);
+  color: var(--current-text-muted);
+  border-top: 1px solid var(--current-input-border);
+  transition: background-color 0.3s ease, color 0.3s ease, border-top-color 0.3s ease;
+}
+
+/* RWD adjustments */
+@media (max-width: 767.98px) {
+  .app-header h1 { font-size: 2rem; }
+  .section-title { font-size: 1.75rem; }
+  .highlight-winner .card-title { font-size: 1.8rem; }
+  .countdown-number { font-size: 6rem; }
+  .col-lg-4, .col-lg-8, .col-md-6, .col-md-5, .col-md-7 { margin-bottom: 1rem; }
+}
+
 @media (max-width: 575.98px) {
-  h1 { font-size: 1.5rem; }
-  .btn-lg { font-size: 1rem; padding: 0.5rem 1rem; }
-  #remainingWrapper { display: none !important; }
-  .winner-card {
-    animation: none;
-    opacity: 1;
-    transform: none;
-  }
-  .mb-4 { margin-bottom: 1.5rem !important; }
-  .py-5 { padding-top: 3rem !important; padding-bottom: 3rem !important; }
-  textarea, input, .btn { width: 100%; box-sizing: border-box; }
+  body { padding-top: 10px; padding-bottom: 10px; }
+  .app-header h1 { font-size: 1.6rem; }
+  .header-icon { font-size: 1.4rem; }
+  .section-title { font-size: 1.5rem; }
+  .highlight-winner .card-title { font-size: 1.5rem; }
+  .btn-draw { font-size: 1rem; padding: .5rem 1.5rem; }
+  .winner-card { animation: none; opacity: 1; transform: none; }
+  .highlight-winner .card-body { padding: 1.5rem; animation: pulseWinnerBorder 1.5s infinite; }
+  .countdown-number { font-size: 4rem; }
 }
-@media (min-width: 576px) and (max-width: 767.98px) {
-  h1 { font-size: 2rem; }
-  .btn-lg { font-size: 1.25rem; padding: 0.75rem 1.5rem; }
+
+/* Theme toggle button */
+.theme-toggle-button {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background-color: var(--current-primary);
+  color: var(--current-text-light);
+  border: none;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  z-index: 1000;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
-@media (min-width: 768px) {
-  #remainingWrapper { display: block !important; }
+.theme-toggle-button:hover {
+  background-color: var(--current-primary-darker);
 }

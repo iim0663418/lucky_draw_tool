@@ -195,10 +195,61 @@ async function shuffleWithSHA256(array, seed) {
   return result;
 }
 
+// Theme toggle functionality
+function initializeTheme() {
+  const themeToggle = document.getElementById('themeToggle');
+  const body = document.body;
+  const lightIcon = document.querySelector('.theme-icon-light');
+  const darkIcon = document.querySelector('.theme-icon-dark');
+
+  function applyTheme(theme) {
+    if (theme === 'dark') {
+      body.classList.add('dark');
+      if (lightIcon) lightIcon.style.display = 'none';
+      if (darkIcon) darkIcon.style.display = 'inline';
+    } else {
+      body.classList.remove('dark');
+      if (lightIcon) lightIcon.style.display = 'inline';
+      if (darkIcon) darkIcon.style.display = 'none';
+    }
+  }
+
+  function toggleTheme() {
+    const currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('theme', newTheme);
+    applyTheme(newTheme);
+  }
+
+  // Initialize theme based on localStorage or system preference
+  const savedTheme = localStorage.getItem('theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+
+  if (savedTheme) {
+    applyTheme(savedTheme);
+  } else if (prefersDark) {
+    applyTheme('dark');
+  } else {
+    applyTheme('light'); // Default to light theme
+  }
+
+  if (themeToggle) {
+    themeToggle.addEventListener('click', toggleTheme);
+  }
+}
+
+// Initialize
 document.addEventListener('DOMContentLoaded', () => {
   loadHistory();
   populatePrizeOptions();
   updateHistoryDisplay();
+  initializeTheme(); // Call theme initialization
+
+  // Set current year in footer
+  const currentYearSpan = document.getElementById('currentYear');
+  if (currentYearSpan) {
+    currentYearSpan.textContent = new Date().getFullYear();
+  }
 
   document.getElementById('prizeFilter').addEventListener('change', () => {
     currentPage = 1;
@@ -229,6 +280,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const initialParticipants = document.getElementById('nameList').value
     .split('\n').map(n => n.trim()).filter(n => n !== '');
   updateParticipantCount(initialParticipants.length);
+  // Initial call to render remaining list if checkbox is unchecked
+  if (!document.getElementById('allowRepeatCheckbox').checked) {
+    renderRemainingList(initialParticipants);
+  }
+
 
   document.getElementById('drawButton').addEventListener('click', async function () {
     const textarea = document.getElementById('nameList');
@@ -281,13 +337,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const col = document.createElement('div');
       col.className = 'col-12 col-sm-6 col-md-4';
       const card = document.createElement('div');
-      card.className = 'card winner-card';
+      card.className = 'card winner-card highlight-winner'; // Added highlight-winner class
       card.style.animationDelay = `${index * 0.2}s`;
       const cardBody = document.createElement('div');
       cardBody.className = 'card-body text-center';
       const title = document.createElement('h5');
       title.className = 'card-title';
-      title.textContent = `🎉 ${name}`;
+      title.textContent = `🏆 ${name} 🏆`; // Added trophy emojis
       const subtitle = document.createElement('p');
       subtitle.className = 'card-text text-muted';
       subtitle.textContent = '恭喜中獎！';
@@ -300,6 +356,59 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Auto-scroll to winners
     scrollToWinners();
+
+    // Trigger confetti
+    // Ensure body is accessible here or re-fetch it.
+    const currentBody = document.body; // Re-fetch body element to ensure it's available
+    const isDarkMode = currentBody.classList.contains('dark');
+    let confettiColors = isDarkMode ? ['#FFFFFF', '#e9ecef', '#adb5bd', '#38d980'] : ['#1a1a1a', '#3e4346', '#565e62', '#2ECC71'];
+    // Add gold/silver for surprise effect
+    confettiColors = [...confettiColors, '#FFD700', '#C0C0C0'];
+
+    // Basic test call for confetti
+    if (typeof confetti === 'function') {
+      console.log('Confetti function is available. Attempting basic call.');
+      try {
+        confetti(); // Simplest possible call
+      } catch (e) {
+        console.error('Error during basic confetti call:', e);
+      }
+    } else {
+      console.error('Confetti function is NOT available.');
+    }
+
+    // First burst - wider and more particles
+    if (typeof confetti === 'function') {
+      confetti({
+        particleCount: 400, // Significantly increased particle count
+        spread: 300,        // Wider spread
+        origin: { y: 0.5 }, // Slightly higher origin
+        colors: confettiColors,
+        shapes: ['circle', 'square', 'star'],
+        startVelocity: 30, // Make them shoot up a bit more
+        drift: 0, // Less sideways drift for the initial burst
+        gravity: 0.8 // Slightly stronger gravity
+      });
+
+      // Second burst - more focused and with different shapes/colors if desired
+      setTimeout(() => {
+        confetti({
+          particleCount: 200,
+          spread: 120,
+          origin: { y: 0.6 },
+          colors: ['#FFD700', '#C0C0C0', isDarkMode ? '#38d980' : '#2ECC71'], // Emphasize gold, silver and accent
+          shapes: ['star'], // Focus on stars for the second burst
+          scalar: 1.2 // Slightly larger particles
+        });
+      }, 150); // Slight delay for the second burst
+    } // Closing the if (typeof confetti === 'function') block
+
+    // Brief background flash
+    currentBody.classList.add('flash-background');
+    setTimeout(() => {
+      currentBody.classList.remove('flash-background');
+    }, 300);
+
 
     if (!allowRepeat) {
       winners.forEach(w => {
@@ -328,7 +437,7 @@ document.addEventListener('DOMContentLoaded', () => {
       allowRepeat: allowRepeat
     };
     historyList.unshift(newRecord);
-    if (historyList.length > 10) {
+    if (historyList.length > 10) { // Keep only last 10 records for simplicity, adjust as needed
       historyList.splice(10);
     }
     saveHistory();
