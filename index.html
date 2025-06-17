@@ -834,7 +834,8 @@
           console.log('初始化賽博龐克背景效果...');
           this.createModaSvgTexture();
           this.createBackgroundPlane();
-          this.initParticleSystem();
+          // 暫時註解粒子系統以實現簡約風格
+          // this.initParticleSystem();
           
           console.log('Three.js initialized successfully');
           console.log('Scene objects count:', this.scene.children.length);
@@ -1072,9 +1073,9 @@
           
           try {
             // 1. 落地霓虹光暈效果 - 使用自訂 Shader Material
-            const auraRadius = 1.8 * scaleFactor; // 從3縮小至1.8，減少光暈範圍
+            const auraRadius = 2.5 * scaleFactor; // 增強光暈以補償粒子移除
             const auraGeometry = new THREE.RingGeometry(0.1 * scaleFactor, auraRadius, 32);
-            const auraMaterial = this.createNeonShaderMaterial(0x00ffff, glowIntensity * 0.8);
+            const auraMaterial = this.createNeonShaderMaterial(0x00ffff, glowIntensity * 1.2); // 增強強度
             effects.aura = new THREE.Mesh(auraGeometry, auraMaterial);
             effects.aura.rotation.x = -Math.PI / 2; // 平躺在地面
             effects.aura.position.y = -1.5 * scaleFactor; // 位置隨卡片縮放
@@ -1780,8 +1781,8 @@
             this.clickHandlingEnabled = true; // 防止重複調用
           }
           
-          // 更新賽博龐克背景效果
-          this.updateParticles();
+          // 更新賽博龐克背景效果 - 粒子系統已暫時移除
+          // this.updateParticles();
           
           // 性能監控計數
           if (this.performanceStats) {
@@ -2187,8 +2188,8 @@
             // 創建背景平面
             this.createBackgroundPlane();
             
-            // 預置粒子系統
-            this.initParticleSystem();
+            // 預置粒子系統 - 暫時移除以實現簡約風格
+            // this.initParticleSystem();
             
             console.log('場景預初始化完成');
             return true;
@@ -3188,9 +3189,10 @@
           this.gradientHalos = [];
           
           const haloConfigs = [
-            { radius: 8, intensity: 0.12, color: 0x00cccc, pulse: 1.5 },  // 從15縮小至8
-            { radius: 12, intensity: 0.08, color: 0x0099cc, pulse: 1.5 }, // 從22縮小至12
-            { radius: 16, intensity: 0.06, color: 0x0066cc, pulse: 1.5 }  // 從30縮小至16
+            { radius: 12, intensity: 0.20, color: 0x00cccc, pulse: 1.2 }, // 增強內層光暈
+            { radius: 18, intensity: 0.15, color: 0x0099cc, pulse: 1.0 }, // 增強中層光暈
+            { radius: 25, intensity: 0.10, color: 0x0066cc, pulse: 0.8 }, // 增強外層光暈
+            { radius: 35, intensity: 0.06, color: 0x004488, pulse: 0.6 }  // 新增遠景光暈
           ];
           
           haloConfigs.forEach((config, index) => {
@@ -3268,15 +3270,15 @@
         createScanLightStrips() {
           this.scanStrips = [];
           
-          // 水平掃光條帶
-          for (let i = 0; i < 3; i++) {
-            const stripGeometry = new THREE.PlaneGeometry(40, 0.5); // 從80x1縮小至40x0.5，更細緻
+          // 增強掃光條帶系統 - 替代粒子效果
+          for (let i = 0; i < 5; i++) { // 增加數量
+            const stripGeometry = new THREE.PlaneGeometry(60, 0.8); // 稍微放大以補償粒子移除
             const stripMaterial = new THREE.ShaderMaterial({
               uniforms: {
                 time: { value: 0 },
-                speed: { value: 0.5 + i * 0.2 },
-                intensity: { value: 0.2 - i * 0.05 },
-                color: { value: new THREE.Color(0x00cccc) }
+                speed: { value: 0.3 + i * 0.15 }, // 多樣化速度
+                intensity: { value: 0.25 - i * 0.04 }, // 增強強度
+                color: { value: new THREE.Color(i % 2 === 0 ? 0x00cccc : 0x0099cc) } // 交替色彩
               },
               vertexShader: `
                 varying vec2 vUv;
@@ -3311,8 +3313,9 @@
             });
             
             const strip = new THREE.Mesh(stripGeometry, stripMaterial);
-            strip.position.set(0, 8 - i * 8, -35);
-            strip.renderOrder = -25;
+            // 更好的分佈定位
+            strip.position.set(0, 12 - i * 6, -30 - i * 2); // 更分散的垂直分佈
+            strip.renderOrder = -20 - i;
             
             this.scanStrips.push(strip);
             this.scene.add(strip);
@@ -3326,9 +3329,11 @@
           this.ambientLayers = [];
           
           const layerConfigs = [
-            { size: 45, opacity: 0.04, color: 0x003333, z: -40 }, // 從100縮小至45
-            { size: 55, opacity: 0.025, color: 0x004444, z: -45 }, // 從120縮小至55
-            { size: 65, opacity: 0.015, color: 0x002222, z: -50 }  // 從140縮小至65
+            { size: 70, opacity: 0.08, color: 0x003333, z: -35 }, // 增強近景環境光
+            { size: 90, opacity: 0.06, color: 0x004444, z: -40 }, // 增強中景環境光
+            { size: 110, opacity: 0.04, color: 0x002244, z: -45 }, // 增強遠景環境光
+            { size: 130, opacity: 0.03, color: 0x001122, z: -50 }, // 新增最遠背景
+            { size: 150, opacity: 0.02, color: 0x000033, z: -55 }  // 深遠背景層
           ];
           
           layerConfigs.forEach((config, index) => {
@@ -3355,9 +3360,9 @@
         ensureCyberpunkThemeConsistency() {
           const themeColors = this.getCurrentThemeColors();
           
-          // 定義前景/背景強度比例，確保卡片焦點突出
-          const backgroundIntensityMultiplier = 0.6; // 背景元素整體降低40%
-          const focusEnhancement = 1.2; // 前景元素稍微增強
+          // 定義簡約風格的視覺平衡比例
+          const backgroundIntensityMultiplier = 1.0; // 無粒子時保持背景強度
+          const focusEnhancement = 1.5; // 更強的前景增強以突出卡片
           
           // 1. 調整漸層光暈 - 背景層級
           if (this.gradientHalos) {
@@ -3443,7 +3448,7 @@
             });
           }
           
-          console.log('賽博龐克主題一致性與視覺平衡調整完成');
+          console.log('簡約賽博龐克風格調整完成 (無粒子系統)');
           console.log('背景強度倍數:', backgroundIntensityMultiplier);
           console.log('前景增強倍數:', focusEnhancement);
         }
@@ -4266,8 +4271,8 @@
           console.log('執行測試渲染...');
           console.log('場景物件:', this.scene.children.map(child => child.type));
           
-          // 更新粒子（如果存在）
-          this.updateParticles();
+          // 更新粒子（如果存在）- 粒子系統已暫時移除
+          // this.updateParticles();
           
           // 渲染一幀
           this.renderer.render(this.scene, this.camera);
