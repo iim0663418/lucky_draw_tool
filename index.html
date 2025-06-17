@@ -112,7 +112,8 @@
     max-width: 95vw;
     max-height: 95vh;
     z-index: 9999; 
-    display: none; 
+    display: none !important;
+    visibility: hidden; 
     background: linear-gradient(135deg, rgba(10,10,10,0.95) 0%, rgba(26,0,51,0.9) 25%, rgba(0,0,102,0.85) 50%, rgba(51,0,102,0.9) 75%, rgba(102,0,153,0.95) 100%);
     border-radius: 15px;
     box-shadow: 0 20px 60px rgba(0,255,255,0.3), 0 0 40px rgba(255,0,255,0.2), inset 0 0 30px rgba(0,255,255,0.1);
@@ -453,6 +454,8 @@
         triggerCardClickEffect(card) {
           console.log('觸發卡片點擊效果:', card.userData.name);
           
+          // 卡片底部光暈效果已完全移除
+          /*
           // 創建爆炸式光暈
           if (card.userData.effects.aura) {
             const aura = card.userData.effects.aura;
@@ -483,6 +486,7 @@
             
             animateExplosion();
           }
+          */
         }
 
         /**
@@ -603,7 +607,7 @@
             config.updateFrequency = 0.033; // 30fps
           }
           
-          console.log(`為 ${cardCount} 張卡片調整性能設定:`, config);
+          console.log('為 ' + cardCount + ' 張卡片調整性能設定:', config);
         }
 
         /**
@@ -757,8 +761,8 @@
 
           console.log('Container found:', this.container);
           
-          // Force container to be visible and get computed style
-          this.container.style.display = 'block';
+          // 保持容器隱藏，避免覆蓋畫面問題
+          // this.container.style.display = 'block'; // 已註解，使用 DOM 卡片展示
           
           // Wait a moment for CSS to apply, then get dimensions
           setTimeout(() => {
@@ -817,7 +821,10 @@
           fillLight.position.set(-5, 0, 3);
           this.scene.add(fillLight);
           
-          console.log('光照系統設置完成');
+          console.log('基礎光照系統設置完成');
+          
+          // 創建動態光影系統
+          this.createDynamicLightingSystem();
           
           // 設置相機位置，提供最佳視角
           this.camera.position.set(0, 2, 12); // 稍微提高並遠離，獲得更好的視角
@@ -875,10 +882,14 @@
             baseHeight * scaleFactor
           );
           
-          // 卡片正面：使用無障礙配色
-          const frontMaterial = new THREE.MeshLambertMaterial({ 
+          // 卡片正面：升級為PBR材質，增加金屬感與光澤度
+          const frontMaterial = new THREE.MeshStandardMaterial({ 
             color: cardColors.frontColor,
-            side: THREE.DoubleSide
+            side: THREE.DoubleSide,
+            metalness: 0.3, // 30%金屬感
+            roughness: 0.4, // 較低粗糙度增加光澤
+            envMapIntensity: 1.0, // 環境反射強度
+            transparent: false
           });
           
           // 卡片背面：載入高對比度文字貼圖
@@ -890,10 +901,13 @@
             
             // 檢查貼圖是否成功創建
             if (backTexture && backTexture.image) {
-              backMaterial = new THREE.MeshLambertMaterial({ 
+              backMaterial = new THREE.MeshStandardMaterial({ 
                 map: backTexture,
                 side: THREE.DoubleSide,
                 color: 0xffffff,
+                metalness: 0.2, // 較低金屬感保持文字清晰
+                roughness: 0.6, // 適中粗糙度
+                envMapIntensity: 0.8,
                 transparent: false
               });
               console.log('無障礙貼圖載入成功:', name);
@@ -902,10 +916,13 @@
             }
           } catch (error) {
             console.warn('貼圖載入失敗，使用後備材質:', error);
-            // 後備材質：使用無障礙配色
-            backMaterial = new THREE.MeshLambertMaterial({
+            // 後備材質：升級為PBR材質
+            backMaterial = new THREE.MeshStandardMaterial({
               color: cardColors.backBackground,
-              side: THREE.DoubleSide
+              side: THREE.DoubleSide,
+              metalness: 0.2,
+              roughness: 0.6,
+              envMapIntensity: 0.8
             });
           }
           
@@ -914,8 +931,14 @@
           // 設定卡片渲染順序為最高優先級（確保永遠在最前景）
           card.renderOrder = 1000; // 最高渲染順序
           
+          // 創建增強卡片材質效果
+          this.enhanceCardMaterialEffects(frontMaterial, backMaterial, cardColors);
+          
           // 創建卡片光暈和掃光效果 - 應用動態強度
           const cardEffects = this.createCardEffects(scaleFactor, glowIntensity, focusEnhancement);
+          
+          // 創建卡片翻轉與反射動畫效果
+          const cardAnimationEffects = this.createCardAnimationEffects(card, scaleFactor, cardColors);
           
           card.userData = {
             frontMaterial: frontMaterial,
@@ -925,13 +948,22 @@
             settled: false,
             clickable: false,
             effects: cardEffects,
+            animationEffects: cardAnimationEffects, // 新增動畫效果
             scaleFactor: scaleFactor, // 儲存縮放因子供後續使用
             glowIntensity: glowIntensity, // 儲存光暈強度
-            focusEnhancement: focusEnhancement // 儲存焦點強化參數
+            focusEnhancement: focusEnhancement, // 儲存焦點強化參數
+            // 動畫狀態追蹤
+            animationState: {
+              isLanding: false,
+              isFlipping: false,
+              landingProgress: 0,
+              flipProgress: 0,
+              lastFlipTime: 0
+            }
           };
           
-          // 將特效添加為卡片的子物件
-          if (cardEffects.aura) card.add(cardEffects.aura);
+          // 將特效添加為卡片的子物件 - 移除底部光暈
+          // if (cardEffects.aura) card.add(cardEffects.aura);
           if (cardEffects.scanLine) card.add(cardEffects.scanLine);
           if (cardEffects.edgeGlowLayers) {
             cardEffects.edgeGlowLayers.forEach(layer => card.add(layer));
@@ -942,13 +974,346 @@
             cardEffects.shadowLayers.forEach(shadow => card.add(shadow));
           }
           
-          console.log('Card created for:', name);
+          // 添加新的動畫效果到卡片
+          if (cardAnimationEffects.landingReflection) {
+            card.add(cardAnimationEffects.landingReflection);
+          }
+          if (cardAnimationEffects.flipSweepLight) {
+            card.add(cardAnimationEffects.flipSweepLight);
+          }
+          if (cardAnimationEffects.enhancedEdgeGlow) {
+            card.add(cardAnimationEffects.enhancedEdgeGlow);
+          }
+          
+          console.log('Enhanced card created for:', name);
           console.log('Front material color:', frontMaterial.color.getHexString());
           if (backTexture && backTexture.image) {
             console.log('Back texture size:', backTexture.image.width, 'x', backTexture.image.height);
           }
           
           return card;
+        }
+
+        /**
+         * 增強卡片材質效果 - PBR材質優化
+         */
+        enhanceCardMaterialEffects(frontMaterial, backMaterial, cardColors) {
+          // 為PBR材質添加環境反射立方體貼圖
+          if (!this.envMap) {
+            this.createEnvironmentMap();
+          }
+          
+          if (this.envMap) {
+            frontMaterial.envMap = this.envMap;
+            if (backMaterial) {
+              backMaterial.envMap = this.envMap;
+            }
+          }
+          
+          // 添加法線貼圖提升細節
+          if (!this.cardNormalMap) {
+            this.cardNormalMap = this.createCardNormalMap();
+          }
+          
+          if (this.cardNormalMap) {
+            frontMaterial.normalMap = this.cardNormalMap;
+            frontMaterial.normalScale = new THREE.Vector2(0.5, 0.5);
+            
+            if (backMaterial) {
+              backMaterial.normalMap = this.cardNormalMap;
+              backMaterial.normalScale = new THREE.Vector2(0.3, 0.3);
+            }
+          }
+          
+          // 添加粗糙度貼圖增加真實感
+          if (!this.cardRoughnessMap) {
+            this.cardRoughnessMap = this.createCardRoughnessMap();
+          }
+          
+          if (this.cardRoughnessMap) {
+            frontMaterial.roughnessMap = this.cardRoughnessMap;
+            if (backMaterial) {
+              backMaterial.roughnessMap = this.cardRoughnessMap;
+            }
+          }
+        }
+
+        /**
+         * 創建環境反射貼圖
+         */
+        createEnvironmentMap() {
+          const cubeTextureLoader = new THREE.CubeTextureLoader();
+          
+          // 創建程序化環境貼圖
+          const canvas = document.createElement('canvas');
+          canvas.width = 512;
+          canvas.height = 512;
+          const ctx = canvas.getContext('2d');
+          
+          // 賽博龐克風格漸層
+          const gradient = ctx.createLinearGradient(0, 0, 512, 512);
+          gradient.addColorStop(0, '#001122');
+          gradient.addColorStop(0.5, '#003366');
+          gradient.addColorStop(1, '#000011');
+          
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, 512, 512);
+          
+          // 添加霓虹點綴
+          ctx.fillStyle = '#00ffff';
+          ctx.globalAlpha = 0.3;
+          for (let i = 0; i < 20; i++) {
+            const x = Math.random() * 512;
+            const y = Math.random() * 512;
+            const radius = Math.random() * 3 + 1;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          
+          const texture = new THREE.CanvasTexture(canvas);
+          this.envMap = texture;
+        }
+
+        /**
+         * 創建卡片法線貼圖
+         */
+        createCardNormalMap() {
+          const canvas = document.createElement('canvas');
+          canvas.width = 256;
+          canvas.height = 256;
+          const ctx = canvas.getContext('2d');
+          
+          // 創建細微的表面變化
+          const imageData = ctx.createImageData(256, 256);
+          const data = imageData.data;
+          
+          for (let i = 0; i < data.length; i += 4) {
+            const x = (i / 4) % 256;
+            const y = Math.floor((i / 4) / 256);
+            
+            // 創建細微的波紋效果
+            const nx = Math.sin(x * 0.1) * 0.1 + 0.5;
+            const ny = Math.sin(y * 0.1) * 0.1 + 0.5;
+            
+            data[i] = nx * 255;     // R - 法線 X
+            data[i + 1] = ny * 255; // G - 法線 Y
+            data[i + 2] = 255;      // B - 法線 Z
+            data[i + 3] = 255;      // A - 透明度
+          }
+          
+          ctx.putImageData(imageData, 0, 0);
+          return new THREE.CanvasTexture(canvas);
+        }
+
+        /**
+         * 創建卡片粗糙度貼圖
+         */
+        createCardRoughnessMap() {
+          const canvas = document.createElement('canvas');
+          canvas.width = 256;
+          canvas.height = 256;
+          const ctx = canvas.getContext('2d');
+          
+          // 創建粗糙度變化
+          const gradient = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+          gradient.addColorStop(0, '#808080'); // 中心較光滑
+          gradient.addColorStop(1, '#404040'); // 邊緣較粗糙
+          
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, 256, 256);
+          
+          return new THREE.CanvasTexture(canvas);
+        }
+
+        /**
+         * 創建卡片翻轉與反射動畫效果
+         */
+        createCardAnimationEffects(card, scaleFactor, cardColors) {
+          const effects = {};
+          
+          // 1. 落地反射光暈效果 (已簡化移除)
+          // effects.landingReflection = this.createLandingReflectionEffect(scaleFactor, cardColors);
+          
+          // 2. 翻轉掃光效果 (已簡化移除)
+          // effects.flipSweepLight = this.createFlipSweepLightEffect(scaleFactor, cardColors);
+          
+          // 3. 邊緣強化發光效果 (保留但簡化)
+          effects.enhancedEdgeGlow = this.createEnhancedEdgeGlowEffect(scaleFactor, cardColors);
+          
+          return effects;
+        }
+
+        /**
+         * 創建落地反射光暈效果
+         */
+        createLandingReflectionEffect(scaleFactor, cardColors) {
+          const reflectionGeometry = new THREE.PlaneGeometry(3.0 * scaleFactor, 3.0 * scaleFactor);
+          
+          const reflectionMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+              time: { value: 0.0 },
+              intensity: { value: 0.0 },
+              color: { value: new THREE.Color(cardColors.primaryBorder) },
+              center: { value: new THREE.Vector2(0.5, 0.5) }
+            },
+            vertexShader: `
+              varying vec2 vUv;
+              void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+              }
+            `,
+            fragmentShader: `
+              uniform float time;
+              uniform float intensity;
+              uniform vec3 color;
+              uniform vec2 center;
+              varying vec2 vUv;
+              
+              void main() {
+                vec2 pos = vUv - center;
+                float dist = length(pos);
+                
+                // 創建脈動反射效果
+                float ripple = sin(dist * 20.0 - time * 8.0) * 0.5 + 0.5;
+                float fade = 1.0 - smoothstep(0.0, 0.5, dist);
+                
+                float alpha = ripple * fade * intensity;
+                gl_FragColor = vec4(color, alpha);
+              }
+            `,
+            transparent: true,
+            blending: THREE.AdditiveBlending
+          });
+          
+          const reflection = new THREE.Mesh(reflectionGeometry, reflectionMaterial);
+          reflection.rotation.x = -Math.PI / 2;
+          reflection.position.y = -1.6 * scaleFactor;
+          reflection.renderOrder = 550;
+          
+          return reflection;
+        }
+
+        /**
+         * 創建翻轉掃光效果
+         */
+        createFlipSweepLightEffect(scaleFactor, cardColors) {
+          const sweepGeometry = new THREE.PlaneGeometry(2.2 * scaleFactor, 3.2 * scaleFactor);
+          
+          const sweepMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+              time: { value: 0.0 },
+              progress: { value: 0.0 },
+              color: { value: new THREE.Color(cardColors.glowColor) },
+              sweepAngle: { value: 0.0 }
+            },
+            vertexShader: `
+              varying vec2 vUv;
+              void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+              }
+            `,
+            fragmentShader: `
+              uniform float time;
+              uniform float progress;
+              uniform vec3 color;
+              uniform float sweepAngle;
+              varying vec2 vUv;
+              
+              void main() {
+                vec2 center = vec2(0.5, 0.5);
+                vec2 pos = vUv - center;
+                
+                // 創建掃光效果
+                float angle = atan(pos.y, pos.x) + 3.14159;
+                float normalizedAngle = angle / (2.0 * 3.14159);
+                
+                float sweepWidth = 0.2;
+                float sweepPos = mod(sweepAngle / (2.0 * 3.14159), 1.0);
+                
+                float dist = abs(normalizedAngle - sweepPos);
+                dist = min(dist, 1.0 - dist); // 處理環繞
+                
+                float intensity = 1.0 - smoothstep(0.0, sweepWidth, dist);
+                intensity *= progress;
+                
+                gl_FragColor = vec4(color, intensity);
+              }
+            `,
+            transparent: true,
+            blending: THREE.AdditiveBlending
+          });
+          
+          const sweep = new THREE.Mesh(sweepGeometry, sweepMaterial);
+          sweep.position.z = 0.02 * scaleFactor;
+          sweep.renderOrder = 650;
+          
+          return sweep;
+        }
+
+        /**
+         * 創建增強邊緣發光效果
+         */
+        createEnhancedEdgeGlowEffect(scaleFactor, cardColors) {
+          const glowGeometry = new THREE.PlaneGeometry(2.4 * scaleFactor, 3.4 * scaleFactor);
+          
+          const glowMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+              time: { value: 0.0 },
+              intensity: { value: 1.0 },
+              primaryColor: { value: new THREE.Color(cardColors.primaryBorder) },
+              secondaryColor: { value: new THREE.Color(cardColors.glowColor) },
+              pulseSpeed: { value: 2.0 }
+            },
+            vertexShader: `
+              varying vec2 vUv;
+              void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+              }
+            `,
+            fragmentShader: `
+              uniform float time;
+              uniform float intensity;
+              uniform vec3 primaryColor;
+              uniform vec3 secondaryColor;
+              uniform float pulseSpeed;
+              varying vec2 vUv;
+              
+              void main() {
+                vec2 center = vec2(0.5, 0.5);
+                vec2 pos = vUv - center;
+                
+                // 計算距邊緣的距離
+                float edgeDist = min(
+                  min(vUv.x, 1.0 - vUv.x),
+                  min(vUv.y, 1.0 - vUv.y)
+                );
+                
+                // 創建邊緣發光
+                float edgeGlow = 1.0 - smoothstep(0.0, 0.1, edgeDist);
+                
+                // 添加脈動效果
+                float pulse = sin(time * pulseSpeed) * 0.3 + 0.7;
+                
+                // 混合色彩
+                vec3 color = mix(primaryColor, secondaryColor, pulse);
+                
+                float alpha = edgeGlow * intensity * pulse;
+                gl_FragColor = vec4(color, alpha);
+              }
+            `,
+            transparent: true,
+            blending: THREE.AdditiveBlending
+          });
+          
+          const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+          glow.position.z = 0.015 * scaleFactor;
+          glow.renderOrder = 680;
+          
+          return glow;
         }
 
         /**
@@ -1062,147 +1427,579 @@
         }
 
         /**
+         * 創建動態光影系統
+         */
+        createDynamicLightingSystem() {
+          console.log('初始化動態光影系統...');
+          
+          // 初始化動態光源容器
+          this.dynamicLights = {
+            pointLights: [],
+            spotLights: [],
+            movingLights: [],
+            ambientController: null
+          };
+          
+          // 1. 創建動態點光源系統
+          this.createDynamicPointLights();
+          
+          // 2. 創建移動聚光燈
+          this.createMovingSpotLights();
+          
+          // 3. 創建環境光控制器
+          this.createAmbientLightController();
+          
+          // 4. 創建漸層光線效果
+          this.createGradientLighting();
+          
+          console.log('動態光影系統初始化完成');
+        }
+
+        /**
+         * 創建動態點光源系統
+         */
+        createDynamicPointLights() {
+          const colors = this.getCurrentThemeColors();
+          
+          // 創建多個動態點光源
+          const lightConfigs = [
+            {
+              color: colors.accessibleCard.primaryBorder,
+              intensity: 0.8,
+              distance: 15,
+              position: { x: 5, y: 3, z: 2 },
+              moveRadius: 3,
+              moveSpeed: 0.5
+            },
+            {
+              color: colors.accessibleCard.glowColor,
+              intensity: 0.6,
+              distance: 12,
+              position: { x: -4, y: 2, z: 3 },
+              moveRadius: 2,
+              moveSpeed: 0.7
+            },
+            {
+              color: colors.accessibleCard.secondaryBorder,
+              intensity: 0.4,
+              distance: 10,
+              position: { x: 0, y: 4, z: -2 },
+              moveRadius: 2.5,
+              moveSpeed: 0.3
+            }
+          ];
+          
+          lightConfigs.forEach((config, index) => {
+            const pointLight = new THREE.PointLight(config.color, config.intensity, config.distance);
+            pointLight.position.set(config.position.x, config.position.y, config.position.z);
+            
+            // 添加動畫參數
+            pointLight.userData = {
+              originalPosition: { ...config.position },
+              moveRadius: config.moveRadius,
+              moveSpeed: config.moveSpeed,
+              phase: index * (Math.PI / 3), // 相位偏移
+              baseIntensity: config.intensity // 基礎強度
+            };
+            
+            this.scene.add(pointLight);
+            this.dynamicLights.pointLights.push(pointLight);
+            
+            console.log('動態點光源 ' + (index + 1) + ' 已添加到場景');
+          });
+        }
+
+        /**
+         * 創建移動聚光燈
+         */
+        createMovingSpotLights() {
+          const colors = this.getCurrentThemeColors();
+          
+          // 主要移動聚光燈
+          const mainSpotLight = new THREE.SpotLight(colors.accessibleCard.primaryBorder, 1.2, 20, Math.PI / 6, 0.3);
+          mainSpotLight.position.set(0, 8, 0);
+          mainSpotLight.target.position.set(0, 0, 0);
+          
+          // 聚光燈動畫參數
+          mainSpotLight.userData = {
+            moveRadius: 4,
+            moveSpeed: 0.4,
+            originalY: 8,
+            heightVariation: 2
+          };
+          
+          this.scene.add(mainSpotLight);
+          this.scene.add(mainSpotLight.target);
+          this.dynamicLights.spotLights.push(mainSpotLight);
+          
+          // 次要移動聚光燈
+          const secondarySpotLight = new THREE.SpotLight(colors.accessibleCard.glowColor, 0.8, 15, Math.PI / 8, 0.5);
+          secondarySpotLight.position.set(-6, 6, 3);
+          secondarySpotLight.target.position.set(0, 0, 0);
+          
+          secondarySpotLight.userData = {
+            moveRadius: 3,
+            moveSpeed: 0.6,
+            originalY: 6,
+            heightVariation: 1.5
+          };
+          
+          this.scene.add(secondarySpotLight);
+          this.scene.add(secondarySpotLight.target);
+          this.dynamicLights.spotLights.push(secondarySpotLight);
+          
+          console.log('移動聚光燈系統已創建');
+        }
+
+        /**
+         * 創建環境光控制器
+         */
+        createAmbientLightController() {
+          // 找到現有的環境光或創建新的
+          let ambientLight = this.scene.children.find(child => child instanceof THREE.AmbientLight);
+          
+          if (!ambientLight) {
+            ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            this.scene.add(ambientLight);
+          }
+          
+          // 添加動態控制參數
+          ambientLight.userData = {
+            baseIntensity: 0.4,
+            targetIntensity: 0.4,
+            pulsePeriod: 8, // 8秒週期
+            colorShiftEnabled: true
+          };
+          
+          this.dynamicLights.ambientController = ambientLight;
+          console.log('環境光控制器已設置');
+        }
+
+        /**
+         * 創建漸層光線效果
+         */
+        createGradientLighting() {
+          const colors = this.getCurrentThemeColors();
+          
+          // 創建背景漸層光源
+          const gradientGeometry = new THREE.PlaneGeometry(30, 30);
+          const gradientMaterial = new THREE.ShaderMaterial({
+            uniforms: {
+              time: { value: 0.0 },
+              color1: { value: new THREE.Color(colors.accessibleCard.primaryBorder) },
+              color2: { value: new THREE.Color(colors.accessibleCard.glowColor) },
+              intensity: { value: 0.3 }
+            },
+            vertexShader: `
+              varying vec2 vUv;
+              void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+              }
+            `,
+            fragmentShader: `
+              uniform float time;
+              uniform vec3 color1;
+              uniform vec3 color2;
+              uniform float intensity;
+              varying vec2 vUv;
+              
+              void main() {
+                vec2 center = vec2(0.5, 0.5);
+                float dist = distance(vUv, center);
+                
+                // 創建脈動漸層
+                float pulse = sin(time * 0.5) * 0.3 + 0.7;
+                float gradient = 1.0 - smoothstep(0.0, 0.8, dist);
+                
+                vec3 color = mix(color1, color2, gradient * pulse);
+                float alpha = gradient * intensity * pulse;
+                
+                gl_FragColor = vec4(color, alpha);
+              }
+            `,
+            transparent: true,
+            blending: THREE.AdditiveBlending
+          });
+          
+          const gradientPlane = new THREE.Mesh(gradientGeometry, gradientMaterial);
+          gradientPlane.position.set(0, 0, -10);
+          gradientPlane.renderOrder = -100; // 最背景
+          
+          this.scene.add(gradientPlane);
+          this.dynamicLights.gradientLighting = gradientPlane;
+          
+          console.log('漸層光線效果已創建');
+        }
+
+        /**
+         * 更新動態光影系統
+         */
+        updateDynamicLighting(time) {
+          if (!this.dynamicLights) return;
+          
+          // 1. 更新動態點光源
+          this.dynamicLights.pointLights.forEach(light => {
+            const userData = light.userData;
+            const moveX = Math.cos(time * userData.moveSpeed + userData.phase) * userData.moveRadius;
+            const moveZ = Math.sin(time * userData.moveSpeed + userData.phase) * userData.moveRadius;
+            const moveY = Math.sin(time * userData.moveSpeed * 0.7 + userData.phase) * 0.5;
+            
+            light.position.set(
+              userData.originalPosition.x + moveX,
+              userData.originalPosition.y + moveY,
+              userData.originalPosition.z + moveZ
+            );
+            
+            // 動態強度變化
+            const intensityPulse = Math.sin(time * 2 + userData.phase) * 0.2 + 0.8;
+            light.intensity = light.userData.baseIntensity * intensityPulse;
+          });
+          
+          // 2. 更新移動聚光燈
+          this.dynamicLights.spotLights.forEach((light, index) => {
+            const userData = light.userData;
+            const phase = index * Math.PI;
+            
+            const moveX = Math.cos(time * userData.moveSpeed + phase) * userData.moveRadius;
+            const moveZ = Math.sin(time * userData.moveSpeed + phase) * userData.moveRadius;
+            const moveY = userData.originalY + Math.sin(time * 0.3 + phase) * userData.heightVariation;
+            
+            light.position.set(moveX, moveY, moveZ);
+            
+            // 聚光燈目標也輕微移動
+            const targetX = Math.sin(time * 0.2 + phase) * 2;
+            const targetZ = Math.cos(time * 0.3 + phase) * 2;
+            light.target.position.set(targetX, 0, targetZ);
+          });
+          
+          // 3. 更新環境光
+          if (this.dynamicLights.ambientController) {
+            const ambient = this.dynamicLights.ambientController;
+            const userData = ambient.userData;
+            
+            const pulse = Math.sin(time / userData.pulsePeriod) * 0.2 + 0.8;
+            ambient.intensity = userData.baseIntensity * pulse;
+            
+            // 顏色漸變（可選）
+            if (userData.colorShiftEnabled) {
+              const hue = (time * 0.1) % 1;
+              ambient.color.setHSL(hue * 0.2 + 0.15, 0.3, 0.8); // 青色範圍內變化
+            }
+          }
+          
+          // 4. 更新漸層光線
+          if (this.dynamicLights.gradientLighting && this.dynamicLights.gradientLighting.material.uniforms) {
+            this.dynamicLights.gradientLighting.material.uniforms.time.value = time;
+          }
+        }
+
+        /**
          * 創建卡片特效系統 - 無障礙增強版（動態強度）
          */
         createCardEffects(scaleFactor = 1.0, glowIntensity = 1.0, focusEnhancement = {}) {
+          return this.createUnifiedCardDecorations(scaleFactor, glowIntensity, focusEnhancement);
+        }
+
+        /**
+         * 統一卡片修飾元素系統 - 使用局部座標系
+         */
+        createUnifiedCardDecorations(scaleFactor = 1.0, glowIntensity = 1.0, focusEnhancement = {}) {
           const effects = {};
           const colors = this.getCurrentThemeColors();
           const cardColors = colors.accessibleCard;
           
-          console.log('創建卡片特效:', { scaleFactor, glowIntensity, focusEnhancement });
+          console.log('創建統一卡片修飾系統:', { scaleFactor, glowIntensity, focusEnhancement });
           
           try {
-            // 1. 落地霓虹光暈效果 - 使用自訂 Shader Material
-            const auraRadius = 2.5 * scaleFactor; // 增強光暈以補償粒子移除
-            const auraGeometry = new THREE.RingGeometry(0.1 * scaleFactor, auraRadius, 32);
-            const auraMaterial = this.createNeonShaderMaterial(0x00ffff, glowIntensity * 1.2); // 增強強度
-            effects.aura = new THREE.Mesh(auraGeometry, auraMaterial);
-            effects.aura.rotation.x = -Math.PI / 2; // 平躺在地面
-            effects.aura.position.y = -1.5 * scaleFactor; // 位置隨卡片縮放
-            effects.aura.renderOrder = 500; // 中等渲染順序
+            // 建立卡片局部座標系統
+            const cardLocalSystem = this.createCardLocalCoordinateSystem(scaleFactor);
             
-            // 2. 霓虹掃光條帶 - 使用自訂 Shader Material
-            const scanWidth = 2.2 * scaleFactor;
-            const scanHeight = 0.1 * scaleFactor;
-            const scanGeometry = new THREE.PlaneGeometry(scanWidth, scanHeight);
-            const scanMaterial = this.createScanLineShaderMaterial(0xff00ff, 0.8);
-            effects.scanLine = new THREE.Mesh(scanGeometry, scanMaterial);
-            effects.scanLine.position.z = 0.01 * scaleFactor; // 位置隨卡片縮放
-            effects.scanLine.renderOrder = 600; // 較高渲染順序
+            // 1. 霓虹掃光條帶 - 使用局部座標 (已簡化移除)
+            // effects.scanLine = this.createLocalScanLine(cardLocalSystem, cardColors, glowIntensity);
             
-            // 3. 無障礙增強邊緣發光輪廓 - 動態多層高對比結構
-            effects.edgeGlowLayers = [];
+            // 2. 統一邊緣發光系統 - 局部座標管理
+            effects.edgeGlowLayers = this.createLocalEdgeGlowSystem(cardLocalSystem, cardColors, glowIntensity, focusEnhancement);
             
-            // 計算動態光暈透明度
-            const baseOpacity = Math.min(1.0, glowIntensity);
-            const shadowIntensity = focusEnhancement.shadowIntensity || 1.0;
+            // 3. 背面遮罩系統 - 局部座標
+            effects.backMask = this.createLocalBackMask(cardLocalSystem, cardColors);
             
-            // 最外層高亮輪廓 - 強烈對比
-            const superOuterSize = { width: 2.6 * scaleFactor, height: 3.6 * scaleFactor };
-            const superOuterGeometry = new THREE.EdgesGeometry(new THREE.PlaneGeometry(superOuterSize.width, superOuterSize.height));
-            const superOuterMaterial = new THREE.LineBasicMaterial({
-              color: cardColors.primaryBorder,
-              transparent: true,
-              opacity: baseOpacity * glowIntensity,
-              linewidth: Math.max(1, 4 * scaleFactor),
-              blending: THREE.AdditiveBlending
-            });
-            const superOuterGlow = new THREE.LineSegments(superOuterGeometry, superOuterMaterial);
-            superOuterGlow.position.z = 0.012 * scaleFactor;
-            superOuterGlow.renderOrder = 104;
-            effects.edgeGlowLayers.push(superOuterGlow);
+            // 4. 正面光暈框系統 - 局部座標
+            effects.frontGlow = this.createLocalFrontGlow(cardLocalSystem, cardColors);
             
-            // 外層強光輪廓
-            const outerSize = { width: 2.4 * scaleFactor, height: 3.4 * scaleFactor };
-            const outerEdgeGeometry = new THREE.EdgesGeometry(new THREE.PlaneGeometry(outerSize.width, outerSize.height));
-            const outerEdgeMaterial = new THREE.LineBasicMaterial({
-              color: cardColors.secondaryBorder,
-              transparent: true,
-              opacity: 0.9 * glowIntensity,
-              linewidth: Math.max(1, 3 * scaleFactor),
-              blending: THREE.AdditiveBlending
-            });
-            const outerEdgeGlow = new THREE.LineSegments(outerEdgeGeometry, outerEdgeMaterial);
-            outerEdgeGlow.position.z = 0.010 * scaleFactor;
-            outerEdgeGlow.renderOrder = 103;
-            effects.edgeGlowLayers.push(outerEdgeGlow);
+            // 5. 動態陰影系統 - 局部座標
+            effects.shadowLayers = this.createLocalShadowSystem(cardLocalSystem, cardColors, focusEnhancement);
             
-            // 內層精細輪廓
-            const innerSize = { width: 2.2 * scaleFactor, height: 3.2 * scaleFactor };
-            const innerEdgeGeometry = new THREE.EdgesGeometry(new THREE.PlaneGeometry(innerSize.width, innerSize.height));
-            const innerEdgeMaterial = new THREE.LineBasicMaterial({
-              color: cardColors.glowColor,
-              transparent: true,
-              opacity: 0.7 * glowIntensity,
-              linewidth: Math.max(1, 2 * scaleFactor),
-              blending: THREE.AdditiveBlending
-            });
-            const innerEdgeGlow = new THREE.LineSegments(innerEdgeGeometry, innerEdgeMaterial);
-            innerEdgeGlow.position.z = 0.008 * scaleFactor;
-            innerEdgeGlow.renderOrder = 102;
-            effects.edgeGlowLayers.push(innerEdgeGlow);
-            
-            // 4. 無障礙背面遮罩增強對比
-            const backMaskGeometry = new THREE.PlaneGeometry(2.05, 3.05);
-            const backMaskMaterial = new THREE.MeshBasicMaterial({
-              color: cardColors.backOverlay,
-              transparent: true,
-              opacity: 0.6, // 增強遮罩強度
-              side: THREE.BackSide
-            });
-            effects.backMask = new THREE.Mesh(backMaskGeometry, backMaskMaterial);
-            effects.backMask.position.z = -0.002;
-            effects.backMask.renderOrder = 95;
-            
-            // 5. 無障礙正面光暈框
-            const frontGlowGeometry = new THREE.PlaneGeometry(2.5, 3.5);
-            const frontGlowMaterial = new THREE.MeshBasicMaterial({
-              color: cardColors.frontColor,
-              transparent: true,
-              opacity: 0.3,
-              side: THREE.DoubleSide,
-              blending: THREE.AdditiveBlending
-            });
-            effects.frontGlow = new THREE.Mesh(frontGlowGeometry, frontGlowMaterial);
-            effects.frontGlow.position.z = -0.001;
-            effects.frontGlow.renderOrder = 96;
-            
-            // 6. 增強動態陰影系統
-            effects.shadowLayers = [];
-            
-            // 主陰影 - 強烈對比
-            const mainShadowGeometry = new THREE.PlaneGeometry(2.0, 2.8); // 從2.8x3.8縮小至2.0x2.8
-            const mainShadowMaterial = new THREE.MeshBasicMaterial({
-              color: cardColors.shadowColor,
-              transparent: true,
-              opacity: cardColors.shadowIntensity,
-              side: THREE.DoubleSide
-            });
-            const mainShadow = new THREE.Mesh(mainShadowGeometry, mainShadowMaterial);
-            mainShadow.position.set(0.15, -0.15, -0.005);
-            mainShadow.renderOrder = 93;
-            effects.shadowLayers.push(mainShadow);
-            
-            // 軟陰影 - 柔和過渡
-            const softShadowGeometry = new THREE.PlaneGeometry(2.2, 3.0); // 從3.0x4.0縮小至2.2x3.0
-            const softShadowMaterial = new THREE.MeshBasicMaterial({
-              color: cardColors.shadowColor,
-              transparent: true,
-              opacity: cardColors.shadowIntensity * 0.4,
-              side: THREE.DoubleSide
-            });
-            const softShadow = new THREE.Mesh(softShadowGeometry, softShadowMaterial);
-            softShadow.position.set(0.2, -0.2, -0.006);
-            softShadow.renderOrder = 92;
-            effects.shadowLayers.push(softShadow);
-            
-            console.log('增強卡片特效系統創建完成');
+            console.log('統一卡片修飾系統創建完成 - 使用局部座標系');
             
           } catch (error) {
             console.error('卡片特效系統創建失敗:', error);
           }
           
           return effects;
+        }
+
+        /**
+         * 創建卡片局部座標系統 - 增強版
+         */
+        createCardLocalCoordinateSystem(scaleFactor = 1.0) {
+          const baseCardSize = { width: 2.0, height: 3.0 };
+          const actualCardSize = { 
+            width: baseCardSize.width * scaleFactor, 
+            height: baseCardSize.height * scaleFactor 
+          };
+          
+          // 計算視覺密度調整因子（多卡片時防止視覺混亂）
+          const visualDensityFactor = Math.max(0.7, Math.min(1.3, 1.0 + (1.0 - scaleFactor) * 0.5));
+          
+          return {
+            scaleFactor: scaleFactor,
+            baseSize: baseCardSize,
+            actualSize: actualCardSize,
+            visualDensityFactor: visualDensityFactor,
+            
+            // 標準化局部座標 - 支援視覺密度調整
+            getLocalPosition: (relativeX, relativeY, relativeZ = 0) => ({
+              x: relativeX * actualCardSize.width,
+              y: relativeY * actualCardSize.height,
+              z: relativeZ * scaleFactor
+            }),
+            
+            // 標準化尺寸計算 - 應用視覺密度調整
+            getLocalSize: (relativeWidth, relativeHeight) => ({
+              width: relativeWidth * actualCardSize.width,
+              height: relativeHeight * actualCardSize.height
+            }),
+            
+            // 智能尺寸計算 - 防止多卡片重疊
+            getAdaptiveSize: (relativeWidth, relativeHeight, preventOverlap = true) => ({
+              width: relativeWidth * actualCardSize.width * (preventOverlap ? visualDensityFactor : 1.0),
+              height: relativeHeight * actualCardSize.height * (preventOverlap ? visualDensityFactor : 1.0)
+            }),
+            
+            // 標準化材質屬性 - 增強適應性
+            getLocalMaterialProps: (baseOpacity, baseLineWidth) => ({
+              opacity: baseOpacity * (scaleFactor > 1.5 ? 0.9 : 1.0), // 大卡片稍微降低透明度
+              linewidth: Math.max(1, baseLineWidth * Math.min(scaleFactor, 2.0)) // 限制線寬最大值
+            }),
+            
+            // 計算最佳間距（用於多卡片佈局）
+            getOptimalSpacing: () => ({
+              x: actualCardSize.width * 1.2 * visualDensityFactor,
+              y: actualCardSize.height * 0.8 * visualDensityFactor
+            })
+          };
+        }
+
+        /**
+         * 創建局部座標掃光條帶 - 優化尺寸與位置
+         */
+        createLocalScanLine(localSystem, cardColors, glowIntensity) {
+          // 動態調整掃光條帶尺寸，確保在不同卡片尺寸下保持視覺一致性
+          const optimalWidth = Math.min(1.15, 1.0 + (localSystem.scaleFactor - 1.0) * 0.3); // 動態寬度調整
+          const optimalHeight = Math.max(0.025, 0.04 / localSystem.scaleFactor); // 逆向高度調整，避免過粗
+          
+          const size = localSystem.getLocalSize(optimalWidth, optimalHeight);
+          const position = localSystem.getLocalPosition(0, 0, 0.005);
+          
+          const geometry = new THREE.PlaneGeometry(size.width, size.height);
+          const material = this.createScanLineShaderMaterial(0xff00ff, 0.8 * glowIntensity);
+          
+          const scanLine = new THREE.Mesh(geometry, material);
+          scanLine.position.set(position.x, position.y, position.z);
+          scanLine.renderOrder = 600;
+          
+          return scanLine;
+        }
+
+        /**
+         * 創建局部座標邊緣發光系統 - 優化尺寸與位置
+         */
+        createLocalEdgeGlowSystem(localSystem, cardColors, glowIntensity, focusEnhancement) {
+          const edgeGlowLayers = [];
+          const baseOpacity = Math.min(1.0, glowIntensity);
+          
+          // 動態調整邊緣發光層級，確保多卡片排列時不重疊
+          const scaleFactor = localSystem.scaleFactor;
+          const densityAdjustment = Math.max(0.8, 1.2 - scaleFactor * 0.1); // 密度調整因子
+          
+          // 邊緣發光層配置 - 優化相對尺寸和間距
+          const layerConfigs = [
+            { 
+              name: 'outer', 
+              relativeSize: { 
+                width: 1.25 * densityAdjustment, 
+                height: 1.15 * densityAdjustment 
+              }, 
+              relativeZ: 0.006, 
+              color: cardColors.primaryBorder, 
+              opacity: baseOpacity * glowIntensity, 
+              linewidth: Math.max(2, 4 * densityAdjustment),
+              renderOrder: 104 
+            },
+            { 
+              name: 'middle', 
+              relativeSize: { 
+                width: 1.15 * densityAdjustment, 
+                height: 1.10 * densityAdjustment 
+              }, 
+              relativeZ: 0.005, 
+              color: cardColors.secondaryBorder, 
+              opacity: 0.9 * glowIntensity, 
+              linewidth: Math.max(1.5, 3 * densityAdjustment),
+              renderOrder: 103 
+            },
+            { 
+              name: 'inner', 
+              relativeSize: { 
+                width: 1.08 * densityAdjustment, 
+                height: 1.05 * densityAdjustment 
+              }, 
+              relativeZ: 0.004, 
+              color: cardColors.glowColor, 
+              opacity: 0.7 * glowIntensity, 
+              linewidth: Math.max(1, 2 * densityAdjustment),
+              renderOrder: 102 
+            }
+          ];
+          
+          layerConfigs.forEach(config => {
+            const size = localSystem.getAdaptiveSize(config.relativeSize.width, config.relativeSize.height, true);
+            const position = localSystem.getLocalPosition(0, 0, config.relativeZ);
+            const materialProps = localSystem.getLocalMaterialProps(config.opacity, config.linewidth);
+            
+            const geometry = new THREE.EdgesGeometry(new THREE.PlaneGeometry(size.width, size.height));
+            const material = new THREE.LineBasicMaterial({
+              color: config.color,
+              transparent: true,
+              opacity: materialProps.opacity,
+              linewidth: materialProps.linewidth,
+              blending: THREE.AdditiveBlending
+            });
+            
+            const edgeGlow = new THREE.LineSegments(geometry, material);
+            edgeGlow.position.set(position.x, position.y, position.z);
+            edgeGlow.renderOrder = config.renderOrder;
+            
+            edgeGlowLayers.push(edgeGlow);
+          });
+          
+          return edgeGlowLayers;
+        }
+
+        /**
+         * 創建局部座標背面遮罩
+         */
+        createLocalBackMask(localSystem, cardColors) {
+          const size = localSystem.getLocalSize(1.025, 1.017); // 稍大於卡片的遮罩
+          const position = localSystem.getLocalPosition(0, 0, -0.001);
+          
+          const geometry = new THREE.PlaneGeometry(size.width, size.height);
+          const material = new THREE.MeshBasicMaterial({
+            color: cardColors.backOverlay,
+            transparent: true,
+            opacity: 0.6,
+            side: THREE.BackSide
+          });
+          
+          const backMask = new THREE.Mesh(geometry, material);
+          backMask.position.set(position.x, position.y, position.z);
+          backMask.renderOrder = 95;
+          
+          return backMask;
+        }
+
+        /**
+         * 創建局部座標正面光暈框
+         */
+        createLocalFrontGlow(localSystem, cardColors) {
+          const size = localSystem.getLocalSize(1.25, 1.167); // 125%寬度，116.7%高度
+          const position = localSystem.getLocalPosition(0, 0, -0.0005);
+          
+          const geometry = new THREE.PlaneGeometry(size.width, size.height);
+          const material = new THREE.MeshBasicMaterial({
+            color: cardColors.frontColor,
+            transparent: true,
+            opacity: 0.3,
+            side: THREE.DoubleSide,
+            blending: THREE.AdditiveBlending
+          });
+          
+          const frontGlow = new THREE.Mesh(geometry, material);
+          frontGlow.position.set(position.x, position.y, position.z);
+          frontGlow.renderOrder = 96;
+          
+          return frontGlow;
+        }
+
+        /**
+         * 創建局部座標陰影系統 - 優化尺寸與位置
+         */
+        createLocalShadowSystem(localSystem, cardColors, focusEnhancement) {
+          const shadowLayers = [];
+          const shadowIntensity = focusEnhancement.shadowIntensity || 1.0;
+          const scaleFactor = localSystem.scaleFactor;
+          
+          // 動態調整陰影偏移，確保在不同卡片尺寸下保持合適的視覺深度
+          const shadowOffsetScale = Math.max(0.6, 1.0 - (scaleFactor - 1.0) * 0.2); // 大卡片減少陰影偏移
+          const shadowSizeScale = Math.min(1.1, 0.9 + scaleFactor * 0.1); // 動態調整陰影尺寸
+          
+          // 陰影層配置 - 使用相對定位與動態調整
+          const shadowConfigs = [
+            {
+              name: 'main',
+              relativeSize: { 
+                width: 1.0 * shadowSizeScale, 
+                height: 0.933 * shadowSizeScale 
+              },
+              relativePosition: { 
+                x: 0.075 * shadowOffsetScale, 
+                y: -0.05 * shadowOffsetScale, 
+                z: -0.0025 
+              },
+              opacity: cardColors.shadowIntensity * shadowIntensity,
+              renderOrder: 93
+            },
+            {
+              name: 'soft',
+              relativeSize: { 
+                width: 1.1 * shadowSizeScale, 
+                height: 1.0 * shadowSizeScale 
+              },
+              relativePosition: { 
+                x: 0.1 * shadowOffsetScale, 
+                y: -0.067 * shadowOffsetScale, 
+                z: -0.003 
+              },
+              opacity: cardColors.shadowIntensity * 0.4 * shadowIntensity,
+              renderOrder: 92
+            }
+          ];
+          
+          shadowConfigs.forEach(config => {
+            const size = localSystem.getLocalSize(config.relativeSize.width, config.relativeSize.height);
+            const position = localSystem.getLocalPosition(
+              config.relativePosition.x, 
+              config.relativePosition.y, 
+              config.relativePosition.z
+            );
+            
+            const geometry = new THREE.PlaneGeometry(size.width, size.height);
+            const material = new THREE.MeshBasicMaterial({
+              color: cardColors.shadowColor,
+              transparent: true,
+              opacity: config.opacity,
+              side: THREE.DoubleSide
+            });
+            
+            const shadow = new THREE.Mesh(geometry, material);
+            shadow.position.set(position.x, position.y, position.z);
+            shadow.renderOrder = config.renderOrder;
+            
+            shadowLayers.push(shadow);
+          });
+          
+          return shadowLayers;
         }
 
         /**
@@ -1241,8 +2038,9 @@
         }
 
         /**
-         * 觸發卡片翻轉掃光特效
+         * 觸發卡片翻轉掃光特效 (已簡化移除)
          */
+        /*
         triggerCardFlipScanEffect(card) {
           if (!card.userData.effects) return;
           
@@ -1278,6 +2076,163 @@
           };
           
           animateScan();
+        }
+        */
+
+        /**
+         * 觸發增強卡片落地反射效果
+         */
+        triggerEnhancedCardLandingEffect(card) {
+          if (!card.userData.animationEffects || !card.userData.animationEffects.landingReflection) return;
+          
+          const reflection = card.userData.animationEffects.landingReflection;
+          const startTime = Date.now();
+          const duration = 1500; // 1.5秒動畫
+          
+          console.log('觸發增強卡片落地反射效果:', card.userData.name);
+          
+          // 標記動畫狀態
+          card.userData.animationState.isLanding = true;
+          card.userData.animationState.landingProgress = 0;
+          
+          const animateReflection = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            // 更新動畫狀態
+            card.userData.animationState.landingProgress = progress;
+            
+            // 反射強度變化 - 強開始，逐漸減弱
+            const intensity = Math.max(0, (1 - progress) * 1.5) * Math.sin(progress * Math.PI);
+            
+            // 更新shader uniforms
+            if (reflection.material.uniforms) {
+              reflection.material.uniforms.time.value = elapsed * 0.001;
+              reflection.material.uniforms.intensity.value = intensity;
+            }
+            
+            if (progress < 1) {
+              requestAnimationFrame(animateReflection);
+            } else {
+              // 動畫結束，重置
+              card.userData.animationState.isLanding = false;
+              card.userData.animationState.landingProgress = 0;
+              if (reflection.material.uniforms) {
+                reflection.material.uniforms.intensity.value = 0;
+              }
+            }
+          };
+          
+          animateReflection();
+        }
+
+        /**
+         * 觸發增強卡片翻轉掃光效果
+         */
+        /**
+         * 觸發增強卡片翻轉掃光效果 (已簡化移除)
+         */
+        /*
+        triggerEnhancedCardFlipEffect(card) {
+          if (!card.userData.animationEffects || !card.userData.animationEffects.flipSweepLight) return;
+          
+          const sweep = card.userData.animationEffects.flipSweepLight;
+          const enhancedGlow = card.userData.animationEffects.enhancedEdgeGlow;
+          const startTime = Date.now();
+          const duration = 800; // 0.8秒動畫
+          
+          console.log('觸發增強卡片翻轉掃光效果:', card.userData.name);
+          
+          // 標記動畫狀態
+          card.userData.animationState.isFlipping = true;
+          card.userData.animationState.flipProgress = 0;
+          card.userData.animationState.lastFlipTime = startTime;
+          
+          const animateFlip = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            // 更新動畫狀態
+            card.userData.animationState.flipProgress = progress;
+            
+            // 掃光進度 - 從0度掃到360度
+            const sweepAngle = progress * Math.PI * 2;
+            const sweepIntensity = Math.sin(progress * Math.PI) * 1.2; // 中間最強
+            
+            // 邊緣發光強度增強
+            const edgeGlowBoost = 1.0 + Math.sin(progress * Math.PI * 2) * 0.5;
+            
+            // 更新shader uniforms
+            if (sweep.material.uniforms) {
+              sweep.material.uniforms.time.value = elapsed * 0.001;
+              sweep.material.uniforms.progress.value = sweepIntensity;
+              sweep.material.uniforms.sweepAngle.value = sweepAngle;
+            }
+            
+            if (enhancedGlow && enhancedGlow.material.uniforms) {
+              enhancedGlow.material.uniforms.time.value = elapsed * 0.001;
+              enhancedGlow.material.uniforms.intensity.value = edgeGlowBoost;
+            }
+            
+            if (progress < 1) {
+              requestAnimationFrame(animateFlip);
+            } else {
+              // 動畫結束，重置
+              card.userData.animationState.isFlipping = false;
+              card.userData.animationState.flipProgress = 0;
+              
+              if (sweep.material.uniforms) {
+                sweep.material.uniforms.progress.value = 0;
+              }
+              if (enhancedGlow && enhancedGlow.material.uniforms) {
+                enhancedGlow.material.uniforms.intensity.value = 1.0;
+              }
+            }
+          };
+          
+          animateFlip();
+        }
+        */
+
+        /**
+         * 更新卡片增強動畫效果
+         */
+        updateCardEnhancedAnimations(card, time) {
+          if (!card.userData.animationEffects) return;
+          
+          const effects = card.userData.animationEffects;
+          const animState = card.userData.animationState;
+          
+          // 持續更新增強邊緣發光
+          if (effects.enhancedEdgeGlow && effects.enhancedEdgeGlow.material.uniforms) {
+            const baseIntensity = animState.isFlipping ? 1.5 : 1.0;
+            effects.enhancedEdgeGlow.material.uniforms.time.value = time;
+            
+            if (!animState.isFlipping) {
+              effects.enhancedEdgeGlow.material.uniforms.intensity.value = baseIntensity;
+            }
+          }
+          
+          // 持續更新落地反射（在非動畫狀態下保持微弱反射）(已簡化移除)
+          /*
+          if (effects.landingReflection && effects.landingReflection.material.uniforms) {
+            effects.landingReflection.material.uniforms.time.value = time;
+            
+            if (!animState.isLanding && card.userData.settled) {
+              // 微弱的持續反射效果
+              const subtleReflection = Math.sin(time * 0.5) * 0.05 + 0.05;
+              effects.landingReflection.material.uniforms.intensity.value = subtleReflection;
+            }
+          }
+          */
+          
+          // 翻轉掃光在非動畫狀態下保持靜止 (已簡化移除)
+          /*
+          if (effects.flipSweepLight && effects.flipSweepLight.material.uniforms && !animState.isFlipping) {
+            effects.flipSweepLight.material.uniforms.time.value = time;
+            effects.flipSweepLight.material.uniforms.progress.value = 0;
+          }
+          */
         }
 
         /**
@@ -1423,8 +2378,9 @@
             return;
           }
 
-          console.log('Setting container display to block');
-          this.container.style.display = 'block';
+          // 保持容器隱藏，避免覆蓋畫面問題
+          console.log('Three.js container 已停用，使用 DOM 卡片展示');
+          // this.container.style.display = 'block'; // 已註解，避免覆蓋問題
           
           // 動態調整性能設定
           this.adjustPerformanceSettings(winners.length);
@@ -1760,8 +2716,8 @@
                 // 設定渲染順序，確保卡片在正確層級
                 card.renderOrder = 10;
                 
-                // 觸發卡片落地光暈特效
-                this.triggerCardLandingEffect(card);
+                // 觸發增強卡片落地反射特效
+                this.triggerEnhancedCardLandingEffect(card);
                 
                 console.log(`卡片 ${index} (${card.userData.name}) 已穩定落地`);
               } else {
@@ -1806,28 +2762,71 @@
           this.renderer.domElement.addEventListener('click', (event) => this.onCanvasClick(event), false);
         }
 
+        /**
+         * 優化的點擊事件處理 - 加入防抖和鎖定機制
+         */
         onCanvasClick(event) {
+          // 防抖機制：檢查最後點擊時間
+          const now = Date.now();
+          if (!this.lastClickTime) this.lastClickTime = 0;
+          
+          const timeSinceLastClick = now - this.lastClickTime;
+          if (timeSinceLastClick < 300) { // 300ms防抖間隔
+            console.log('點擊過快，忽略 (防抖機制)');
+            return;
+          }
+          
+          this.lastClickTime = now;
+          
+          // 檢查點擊處理是否啟用
+          if (!this.clickHandlingEnabled) {
+            console.log('點擊處理未啟用');
+            return;
+          }
+          
+          // 計算鼠標位置
           const rect = this.renderer.domElement.getBoundingClientRect();
           const mouse = new THREE.Vector2();
           mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
           mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
           
-          const raycaster = new THREE.Raycaster();
-          raycaster.setFromCamera(mouse, this.camera);
+          // 使用共享的 raycaster 避免重複創建
+          if (!this.clickRaycaster) {
+            this.clickRaycaster = new THREE.Raycaster();
+          }
+          this.clickRaycaster.setFromCamera(mouse, this.camera);
           
           // 只檢測已穩定且可點擊的卡片
           const clickableCards = this.cards.filter(card => 
             card.userData.settled && 
             card.userData.clickable && 
-            !card.userData.isFlipped
+            !card.userData.isFlipped &&
+            !card.userData.isFlipping  // 排除正在翻轉的卡片
           );
           
-          const intersects = raycaster.intersectObjects(clickableCards);
+          if (clickableCards.length === 0) {
+            console.log('沒有可點擊的卡片');
+            return;
+          }
+          
+          const intersects = this.clickRaycaster.intersectObjects(clickableCards);
           
           if (intersects.length > 0) {
             const card = intersects[0].object;
+            
+            // 雙重檢查卡片狀態
+            if (card.userData.isFlipped || card.userData.isFlipping || !card.userData.clickable) {
+              console.log('卡片狀態不允許翻轉:', card.userData.name);
+              return;
+            }
+            
             console.log('點擊卡片:', card.userData.name);
             this.flipCard(card);
+            
+            // 點擊成功後的統計
+            const remainingCards = this.cards.filter(c => !c.userData.isFlipped && !c.userData.isFlipping).length;
+            console.log('剩餘可翻轉卡片:', remainingCards);
+            
           } else {
             console.log('點擊位置無有效卡片', {
               mousePos: mouse,
@@ -1837,32 +2836,63 @@
           }
         }
 
+        /**
+         * 重設翻卡動畫 - 簡化穩定版本
+         */
         flipCard(card) {
-          card.userData.isFlipped = true;
+          // 防抖機制：避免重複觸發
+          if (card.userData.isFlipping || card.userData.isFlipped) {
+            console.log('卡片已在翻轉或已翻轉，忽略點擊');
+            return;
+          }
+          
+          // 設置動畫狀態
+          card.userData.isFlipping = true;
           card.userData.clickable = false;
           
-          // 觸發翻轉掃光特效
-          this.triggerCardFlipScanEffect(card);
-          
-          const duration = 500;
+          const duration = 600; // 稍微延長動畫時間使其更穩定
           const startTime = Date.now();
+          let materialSwitched = false;
+          
+          console.log('開始翻卡動畫:', card.userData.name);
           
           const animate = () => {
             const elapsed = Date.now() - startTime;
             const progress = Math.min(elapsed / duration, 1);
             
-            card.rotation.y = progress * Math.PI;
+            // 使用 easeInOutQuad 曲線讓動畫更流暢
+            const easeProgress = progress < 0.5 
+              ? 2 * progress * progress 
+              : 1 - Math.pow(-2 * progress + 2, 2) / 2;
             
-            if (progress >= 0.5 && card.material === card.userData.frontMaterial) {
+            // 設置Y軸旋轉
+            card.rotation.y = easeProgress * Math.PI;
+            
+            // 在90度時切換材質，避免閃爍
+            if (progress >= 0.5 && !materialSwitched) {
               card.material = card.userData.backMaterial;
+              materialSwitched = true;
+              console.log('切換到背面材質:', card.userData.name);
             }
             
-            if (progress < 1) {
-              requestAnimationFrame(animate);
+            // 動畫完成處理
+            if (progress >= 1) {
+              // 確保最終狀態正確
+              card.rotation.y = Math.PI;
+              card.material = card.userData.backMaterial;
+              card.userData.isFlipped = true;
+              card.userData.isFlipping = false;
+              
+              console.log('翻卡動畫完成:', card.userData.name);
+              return; // 結束動畫
             }
+            
+            // 繼續動畫
+            requestAnimationFrame(animate);
           };
           
-          animate();
+          // 開始動畫
+          requestAnimationFrame(animate);
         }
 
         allCardsFlipped() {
@@ -2308,8 +3338,8 @@
             this.createLogoEnhancedGlow();
             
             // 霓虹光暈效果圈 - 營造遠景霧化感
-            this.createNeonRings();
-            this.createLogoGlowEffect();
+            // this.createNeonRings(); // 已移除線條光圈效果
+            // this.createLogoGlowEffect(); // 已移除線條光圈效果
             
             if (this.scene) {
               this.scene.add(this.backgroundPlane);
@@ -2442,8 +3472,9 @@
         }
 
         /**
-         * 創建商標光暈效果 - 霧化遠景感
+         * 創建商標光暈效果 - 霧化遠景感 (已移除線條光圈效果)
          */
+        /*
         createLogoGlowEffect() {
           console.log('創建商標光暈效果...');
           
@@ -2492,10 +3523,15 @@
             console.error('創建商標光暈效果失敗:', error);
           }
         }
+        */
 
         /**
          * 創建霓虹光環效果
          */
+        /**
+         * 創建霓虹光環效果 (已移除線條光圈效果)
+         */
+        /*
         createNeonRings() {
           console.log('創建霓虹光環效果...');
           
@@ -2540,10 +3576,13 @@
             console.error('創建霓虹光環失敗:', error);
           }
         }
+        */
 
         /**
          * 初始化賽博龐克粒子系統 - 升級版
          */
+        // 移除非背景粒子系統 - 保持簡約賽博龐克風格
+        /*
         initParticleSystem() {
           console.log('初始化賽博龐克粒子系統 - 升級版...');
           
@@ -2569,10 +3608,13 @@
             console.error('粒子系統初始化失敗:', error);
           }
         }
+        */
 
         /**
-         * 創建粒子貼圖Atlas - 整合多種形狀
+         * 創建粒子貼圖Atlas - 整合多種形狀 (已停用)
          */
+        // 移除非背景粒子特效
+        /*
         createParticleTextureAtlas() {
           console.log('創建粒子貼圖Atlas...');
           
@@ -2766,6 +3808,7 @@
             console.error('粒子貼圖Atlas創建失敗:', error);
           }
         }
+        */
 
         /**
          * 繪製星形輔助函數
@@ -2814,8 +3857,9 @@
         }
 
         /**
-         * 創建進階Sprite粒子系統
+         * 創建進階Sprite粒子系統 (已停用)
          */
+        /*
         createAdvancedSpriteParticles() {
           console.log('創建進階Sprite粒子系統...');
           
@@ -2891,10 +3935,12 @@
             console.error('進階Sprite粒子系統創建失敗:', error);
           }
         }
+        */
 
         /**
-         * 創建Sprite粒子群組
+         * 創建Sprite粒子群組 (已停用)
          */
+        /*
         createSpriteGroup(groupName, config) {
           try {
             const group = new THREE.Group();
@@ -3016,7 +4062,7 @@
         }
 
         /**
-         * 創建數據流粒子效果
+         * 創建數據流粒子效果 (已停用)
          */
         createDataFlowParticles() {
           const particleCount = 100;
@@ -3118,8 +4164,9 @@
         }
 
         /**
-         * 創建故障閃爍粒子效果
+         * 創建故障閃爍粒子效果 (已停用)
          */
+        /*
         createGlitchParticles() {
           const particleCount = 30;
           const positions = new Float32Array(particleCount * 3);
@@ -3159,6 +4206,7 @@
             console.log('故障粒子已添加到場景');
           }
         }
+        */
 
         /**
          * 創建增強替代視覺特效 - 細緻光暈、掃光條帶、漸層效果
@@ -3485,19 +4533,26 @@
         }
 
         /**
-         * 更新賽博龐克動畫效果 - 升級版本
+         * 更新賽博龐克動畫效果 - 性能優化版本
          */
+        // 重構為專注背景和卡片效果的更新系統，集成性能監控
         updateParticles() {
           const time = Date.now() * 0.001;
           
-          // 性能優化：降低更新頻率
+          // 性能監控與自適應優化
+          this.updatePerformanceMonitoring(time);
+          
+          // 動態性能優化：基於FPS調整更新頻率
           if (!this.lastUpdateTime) this.lastUpdateTime = 0;
           const deltaTime = time - this.lastUpdateTime;
           
-          // 每秒30幀更新，而非60幀，節省性能
-          if (deltaTime < 0.033) return;
+          // 自適應幀率控制：高性能時60fps，低性能時30fps
+          const targetFrameTime = this.performanceMetrics.adaptiveFrameTime || 0.033;
+          if (deltaTime < targetFrameTime) return;
           this.lastUpdateTime = time;
           
+          // 移除非背景粒子系統更新
+          /*
           // 更新進階Sprite粒子系統
           if (this.spriteParticleGroups && this.spriteParticleGroups.length > 0) {
             this.updateAdvancedSpriteParticles(time, deltaTime);
@@ -3517,29 +4572,40 @@
           if (this.glitchParticles && time % 0.2 < 0.033) {
             this.updateGlitchParticles(time);
           }
+          */
           
-          // 更新增強視覺特效系統
+          // 保留背景視覺特效系統
           this.updateEnhancedVisualEffects(time);
           
-          // 更新霓虹光環
+          // 保留霓虹光環（背景裝飾）(已移除線條光圈效果)
+          /*
           if (this.neonRings && this.neonRings.length > 0) {
             this.updateNeonRings(time);
           }
+          */
           
-          // 更新商標動畫
+          // 保留商標動畫
           if (this.logoPlane) {
             this.updateLogoAnimation(time);
           }
           
-          // 更新無障礙卡片動態特效輔助辨識
+          // 保留卡片動態特效
           if (this.cards && this.cards.length > 0) {
             this.updateAccessibilityCardEffects(time, deltaTime);
+            
+            // 更新增強卡片動畫效果
+            this.cards.forEach(card => {
+              this.updateCardEnhancedAnimations(card, time);
+            });
           }
           
-          // 更新自訂 Shader Material 的 uniforms
+          // 保留 Shader Material 更新
           this.updateShaderMaterials(time);
           
-          // 更新鼠標互動效果
+          // 更新動態光影系統
+          this.updateDynamicLighting(time);
+          
+          // 保留鼠標互動效果
           this.updateMouseEffects(time);
         }
 
@@ -3554,15 +4620,17 @@
             
             const effects = card.userData.effects;
             
-            // 更新霓虹光暈 shader uniforms
-            if (effects.aura && effects.aura.material.uniforms) {
-              effects.aura.material.uniforms.time.value = time;
-            }
+            // 更新霓虹光暈 shader uniforms - 已移除底部光暈
+            // if (effects.aura && effects.aura.material.uniforms) {
+            //   effects.aura.material.uniforms.time.value = time;
+            // }
             
-            // 更新掃光條帶 shader uniforms
+            // 更新掃光條帶 shader uniforms (已簡化移除)
+            /*
             if (effects.scanLine && effects.scanLine.material.uniforms) {
               effects.scanLine.material.uniforms.time.value = time;
             }
+            */
           });
         }
 
@@ -3574,6 +4642,9 @@
           
           const colors = this.getCurrentThemeColors();
           const cardColors = colors.accessibleCard;
+          
+          // 統一動畫節奏系統
+          const animationRhythm = this.createUnifiedAnimationRhythm(time, this.cards.length);
           
           this.cards.forEach((card, index) => {
             if (!card.userData.effects) return;
@@ -3587,156 +4658,491 @@
             const glowIntensity = card.userData.glowIntensity || 1.0;
             const focusEnhancement = card.userData.focusEnhancement || {};
             
-            // 1. 邊緣發光脈動效果 - 動態強度增強辨識度
-            if (effects.edgeGlowLayers) {
-              // 使用動態脈動頻率
-              const pulsePeriod = focusEnhancement.pulseFrequency || (2.0 + (index * 0.3));
-              const basePulseIntensity = Math.sin(time * pulsePeriod) * 0.3 + 0.7;
-              const enhancedPulseIntensity = basePulseIntensity * glowIntensity;
-              
-              effects.edgeGlowLayers.forEach((layer, layerIndex) => {
-                if (!layer.material) return;
-                
-                // 多層光暈具有不同強度，受 scaleFactor 影響
-                const layerIntensity = enhancedPulseIntensity * (1 - layerIndex * 0.1) * Math.min(1.5, scaleFactor);
-                layer.material.opacity = Math.max(0.2, layerIntensity);
-                
-                // 可點擊時根據互動強化係數加強發光
-                if (isClickable) {
-                  const interactionBoost = focusEnhancement.interactionBoost || 1.0;
-                  layer.material.opacity *= (1.3 + interactionBoost * 0.3);
-                }
-                
-                // 少量卡片時額外增強邊緣光暈
-                if (scaleFactor > 1.3) {
-                  layer.material.opacity *= 1.2;
-                }
-              });
-            }
-            
-            // 2. 卡片整體亮度調節 - 提升對比度
-            if (isFlipped) {
-              // 翻轉後的卡片：週期性亮度變化
-              const brightnessCycle = Math.sin(time * 1.5 + index * 0.5) * 0.15 + 1.0;
-              
-              // 調整正面材質亮度
-              if (card.userData.frontMaterial) {
-                const frontColor = card.userData.frontMaterial.color;
-                const baseColor = new THREE.Color(cardColors.frontColor);
-                frontColor.copy(baseColor.multiplyScalar(brightnessCycle));
-              }
-            } else {
-              // 背面卡片：穩定高對比度
-              if (card.userData.backMaterial) {
-                const backColor = card.userData.backMaterial.color;
-                const baseColor = new THREE.Color(cardColors.backBackground);
-                backColor.copy(baseColor);
-              }
-            }
-            
-            // 3. 陰影動態調整 - 增強立體感
-            if (effects.shadowLayers) {
-              const shadowIntensity = Math.sin(time * 0.8 + index * 0.3) * 0.2 + 0.8;
-              
-              effects.shadowLayers.forEach((shadow, shadowIndex) => {
-                if (!shadow.material) return;
-                
-                const baseShadowOpacity = shadowIndex === 0 ? 
-                  cardColors.shadowIntensity : 
-                  cardColors.shadowIntensity * 0.4;
-                
-                shadow.material.opacity = baseShadowOpacity * shadowIntensity;
-                
-                // 輕微陰影位移增強動態感
-                const offsetX = Math.sin(time * 0.5 + index * 0.4) * 0.05;
-                const offsetY = Math.cos(time * 0.6 + index * 0.4) * 0.05;
-                shadow.position.x = 0.15 + offsetX;
-                shadow.position.y = -0.15 + offsetY;
-              });
-            }
-            
-            // 4. 特殊閃爍提示 - 可點擊狀態指示
-            if (isClickable) {
-              const flashFrequency = 2.5; // 每秒2.5次閃爍
-              const flashIntensity = Math.sin(time * flashFrequency * Math.PI * 2) * 0.5 + 0.5;
-              
-              // 前景光暈閃爍
-              if (effects.frontGlow) {
-                effects.frontGlow.material.opacity = 0.3 + flashIntensity * 0.4;
-              }
-              
-              // 背景遮罩閃爍
-              if (effects.backMask) {
-                effects.backMask.material.opacity = 0.6 + flashIntensity * 0.2;
-              }
-            }
-            
-            // 5. 顏色溫度調節 - 根據主題優化
-            const isDarkTheme = this.currentTheme === 'dark';
-            if (isDarkTheme) {
-              // 深色主題：偏冷色調增強對比
-              if (effects.edgeGlowLayers) {
-                effects.edgeGlowLayers.forEach(layer => {
-                  if (layer.material && layer.material.color) {
-                    const coolTint = new THREE.Color(cardColors.primaryBorder);
-                    layer.material.color.lerp(coolTint, 0.1);
-                  }
-                });
-              }
-            } else {
-              // 淺色主題：偏暖色調保持舒適
-              if (effects.edgeGlowLayers) {
-                effects.edgeGlowLayers.forEach(layer => {
-                  if (layer.material && layer.material.color) {
-                    const warmTint = new THREE.Color(cardColors.glowColor);
-                    layer.material.color.lerp(warmTint, 0.1);
-                  }
-                });
-              }
-            }
-            
-            // 6. 互動體驗提升 - 少量卡片時的浮動動畫
-            if (scaleFactor > 1.3) { // 少量卡片才啟用浮動效果
-              // 輕微的浮動動畫，增加生動感
-              const floatFrequency = 0.8 + index * 0.1; // 每張卡片不同頻率
-              const floatAmplitude = 0.05 * scaleFactor; // 振幅隨大小調整
-              
-              const floatOffset = Math.sin(time * floatFrequency) * floatAmplitude;
-              const originalY = card.userData.targetPosition ? card.userData.targetPosition.y : 0;
-              
-              // 只在卡片已穩定落地後才應用浮動
-              if (card.userData.settled) {
-                card.position.y = originalY + floatOffset;
-                
-                // 輕微的旋轉動畫
-                const rotationAmplitude = 0.02; // 約1度
-                const rotationOffset = Math.sin(time * floatFrequency * 0.7 + index) * rotationAmplitude;
-                card.rotation.z = rotationOffset;
-              }
-              
-              // 可點擊狀態下的額外hover效果
-              if (isClickable) {
-                // 模擬hover效果的輕微放大
-                const hoverScale = 1 + Math.sin(time * 3) * 0.02; // 2%的縮放變化
-                const currentScale = card.scale.x; // 獲取當前縮放
-                card.scale.setScalar(currentScale * hoverScale);
-              }
-            }
-            
-            // 7. 點擊反饋動畫準備（為將來的點擊事件做準備）
-            if (!card.userData.animationState) {
-              card.userData.animationState = {
-                isHovered: false,
-                clickAnimation: false,
-                lastClickTime: 0
-              };
-            }
+            // 應用統一動畫節奏到卡片修飾元素
+            this.applyUnifiedRhythmToCardDecorations(card, index, effects, animationRhythm, {
+              scaleFactor, glowIntensity, focusEnhancement, isFlipped, isClickable, cardColors
+            });
           });
         }
 
         /**
-         * 更新進階Sprite粒子系統 - 節奏化閃爍
+         * 創建統一動畫節奏系統 - 性能優化版
          */
+        createUnifiedAnimationRhythm(time, cardCount) {
+          // 基於卡片數量和性能調整整體動畫頻率
+          const baseFrequency = Math.max(0.8, 2.0 - cardCount * 0.1); // 卡片越多，頻率越低
+          const complexityReduction = Math.min(1.0, cardCount / 6); // 簡化因子
+          
+          // 性能自適應調整
+          const performanceMultiplier = this.performanceMetrics ? 
+            this.performanceMetrics.qualityLevel : 1.0;
+          const optimizedFrequency = baseFrequency * (0.5 + performanceMultiplier * 0.5);
+          
+          return {
+            // 主要脈動節奏（邊緣發光）- 性能優化
+            mainPulse: {
+              frequency: optimizedFrequency,
+              phase: 0,
+              amplitude: 0.3 * (1 - complexityReduction * 0.5) * performanceMultiplier,
+              baseline: 0.7
+            },
+            
+            // 次要閃爍節奏（掃光、前景）- 性能優化
+            secondaryFlash: {
+              frequency: optimizedFrequency * 1.5,
+              phase: Math.PI / 3,
+              amplitude: 0.2 * (1 - complexityReduction * 0.3) * performanceMultiplier,
+              baseline: 0.8
+            },
+            
+            // 陰影動態節奏（較慢）- 性能優化
+            shadowRhythm: {
+              frequency: optimizedFrequency * 0.4,
+              phase: Math.PI / 6,
+              amplitude: 0.2 * performanceMultiplier,
+              baseline: 0.8
+            },
+            
+            // 浮動動畫節奏（僅限少量卡片且高性能）
+            floatRhythm: {
+              frequency: optimizedFrequency * 0.5,
+              amplitude: 0.05 * performanceMultiplier,
+              enabled: cardCount <= 3 && performanceMultiplier > 0.7
+            },
+            
+            // 複雜度控制 - 性能自適應
+            complexity: {
+              level: Math.max(0.3, (1.0 - complexityReduction) * performanceMultiplier),
+              enableAdvancedEffects: cardCount <= 5 && performanceMultiplier > 0.6,
+              enableColorShifts: cardCount <= 3 && performanceMultiplier > 0.8,
+              performanceOptimized: performanceMultiplier < 1.0
+            }
+          };
+        }
+
+        /**
+         * 應用統一節奏到卡片修飾元素
+         */
+        applyUnifiedRhythmToCardDecorations(card, index, effects, rhythm, params) {
+          const { scaleFactor, glowIntensity, focusEnhancement, isFlipped, isClickable, cardColors } = params;
+          const time = Date.now() * 0.001;
+          
+          // 1. 簡化邊緣發光 - 靜態或低頻脈動
+          if (effects.edgeGlowLayers) {
+            // 簡化為低頻率脈動 (原頻率的1/4)
+            const simplePulse = 0.8 + Math.sin(time * 0.5) * 0.15; // 低頻率脈動
+            
+            effects.edgeGlowLayers.forEach((layer, layerIndex) => {
+              if (!layer.material) return;
+              
+              // 基礎不透明度，減少計算
+              let baseOpacity = glowIntensity * (0.8 - layerIndex * 0.1);
+              
+              // 只在可點擊時添加輕微增強
+              if (isClickable) {
+                baseOpacity *= 1.1; // 簡化點擊增強效果
+              }
+              
+              // 應用簡化的脈動效果
+              layer.material.opacity = Math.max(0.1, Math.min(1.0, baseOpacity * simplePulse));
+            });
+          }
+          
+          // 2. 統一掃光條帶動畫 (已簡化移除)
+          /*
+          if (effects.scanLine && effects.scanLine.material && effects.scanLine.material.uniforms) {
+            const flash = rhythm.secondaryFlash;
+            const flashIntensity = flash.baseline + 
+              Math.sin(time * flash.frequency + flash.phase + index * 0.5) * flash.amplitude;
+            
+            effects.scanLine.material.uniforms.intensity.value = flashIntensity * glowIntensity;
+            effects.scanLine.material.uniforms.time.value = time;
+          }
+          */
+          
+          // 3. 統一陰影動畫
+          if (effects.shadowLayers) {
+            const shadowRhythm = rhythm.shadowRhythm;
+            const shadowIntensity = shadowRhythm.baseline + 
+              Math.sin(time * shadowRhythm.frequency + shadowRhythm.phase + index * 0.3) * shadowRhythm.amplitude;
+            
+            effects.shadowLayers.forEach((shadow, shadowIndex) => {
+              if (!shadow.material) return;
+              
+              const baseShadowOpacity = shadowIndex === 0 ? 
+                cardColors.shadowIntensity : cardColors.shadowIntensity * 0.4;
+              
+              shadow.material.opacity = baseShadowOpacity * shadowIntensity;
+              
+              // 簡化的位移動畫
+              if (rhythm.complexity.enableAdvancedEffects) {
+                const offsetScale = 0.03 * rhythm.complexity.level;
+                const offsetX = Math.sin(time * 0.5 + index * 0.4) * offsetScale;
+                const offsetY = Math.cos(time * 0.6 + index * 0.4) * offsetScale;
+                shadow.position.x = (shadow.userData.baseOffsetX || 0.075) + offsetX;
+                shadow.position.y = (shadow.userData.baseOffsetY || -0.05) + offsetY;
+              }
+            });
+          }
+          
+          // 4. 統一前景/背景光暈
+          if (effects.frontGlow) {
+            const flash = rhythm.secondaryFlash;
+            let frontOpacity = 0.3;
+            
+            if (isClickable) {
+              const clickFlash = Math.sin(time * 3 + index) * 0.1 + 0.9;
+              frontOpacity = 0.3 + clickFlash * 0.2;
+            }
+            
+            effects.frontGlow.material.opacity = frontOpacity;
+          }
+          
+          // 5. 統一卡片浮動動畫（僅限少量卡片）
+          if (rhythm.floatRhythm.enabled && scaleFactor > 1.2 && card.userData.settled) {
+            const floatRhythm = rhythm.floatRhythm;
+            const cardFloatPhase = index * (Math.PI / 3);
+            const floatOffset = Math.sin(time * floatRhythm.frequency + cardFloatPhase) * 
+                               floatRhythm.amplitude * scaleFactor;
+            
+            const originalY = card.userData.targetPosition ? card.userData.targetPosition.y : 0;
+            card.position.y = originalY + floatOffset;
+            
+            // 輕微旋轉
+            if (rhythm.complexity.enableAdvancedEffects) {
+              const rotationOffset = Math.sin(time * floatRhythm.frequency * 0.7 + cardFloatPhase) * 0.01;
+              card.rotation.z = rotationOffset;
+            }
+          }
+          
+          // 6. 統一顏色溫度調節（僅限少量卡片）
+          if (rhythm.complexity.enableColorShifts && effects.edgeGlowLayers) {
+            const isDarkTheme = this.currentTheme === 'dark';
+            const colorShiftIntensity = 0.05 * rhythm.complexity.level;
+            
+            effects.edgeGlowLayers.forEach(layer => {
+              if (layer.material && layer.material.color) {
+                const targetColor = isDarkTheme ? 
+                  new THREE.Color(cardColors.primaryBorder) : 
+                  new THREE.Color(cardColors.glowColor);
+                layer.material.color.lerp(targetColor, colorShiftIntensity);
+              }
+            });
+          }
+        }
+
+        /**
+         * 性能監控與自適應優化系統
+         */
+        updatePerformanceMonitoring(time) {
+          if (!this.performanceMetrics) {
+            this.performanceMetrics = {
+              frameCount: 0,
+              lastFPSCheck: time,
+              fps: 60,
+              renderTimes: [],
+              adaptiveFrameTime: 0.016, // 60fps
+              qualityLevel: 1.0,
+              lowPerformanceCount: 0
+            };
+          }
+          
+          const metrics = this.performanceMetrics;
+          metrics.frameCount++;
+          
+          // 每秒計算一次FPS
+          if (time - metrics.lastFPSCheck >= 1.0) {
+            metrics.fps = metrics.frameCount / (time - metrics.lastFPSCheck);
+            metrics.frameCount = 0;
+            metrics.lastFPSCheck = time;
+            
+            // 自適應性能調整
+            this.adaptivePerformanceOptimization(metrics.fps);
+            
+            // 調試信息
+            if (metrics.fps < 45) {
+              console.log('性能警告: FPS=' + metrics.fps.toFixed(1) + ', 品質等級=' + metrics.qualityLevel.toFixed(2));
+            }
+          }
+        }
+
+        /**
+         * 自適應性能優化
+         */
+        adaptivePerformanceOptimization(currentFPS) {
+          const metrics = this.performanceMetrics;
+          
+          // 性能閾值設定
+          const highPerformanceThreshold = 55; // 高性能閾值
+          const lowPerformanceThreshold = 35;  // 低性能閾值
+          
+          if (currentFPS < lowPerformanceThreshold) {
+            metrics.lowPerformanceCount++;
+            
+            // 降低品質等級
+            if (metrics.qualityLevel > 0.3) {
+              metrics.qualityLevel = Math.max(0.3, metrics.qualityLevel - 0.1);
+              metrics.adaptiveFrameTime = 0.033; // 降至30fps
+              
+              // 應用性能優化措施
+              this.applyPerformanceOptimizations();
+              
+              console.log('性能優化: 降低品質至' + (metrics.qualityLevel * 100).toFixed(0) + '%');
+            }
+          } else if (currentFPS > highPerformanceThreshold && metrics.lowPerformanceCount === 0) {
+            // 恢復品質等級
+            if (metrics.qualityLevel < 1.0) {
+              metrics.qualityLevel = Math.min(1.0, metrics.qualityLevel + 0.05);
+              metrics.adaptiveFrameTime = 0.016; // 恢復至60fps
+              
+              console.log('性能恢復: 提升品質至' + (metrics.qualityLevel * 100).toFixed(0) + '%');
+            }
+          }
+          
+          // 重置低性能計數器
+          if (currentFPS > lowPerformanceThreshold) {
+            metrics.lowPerformanceCount = Math.max(0, metrics.lowPerformanceCount - 1);
+          }
+        }
+
+        /**
+         * 應用性能優化措施
+         */
+        applyPerformanceOptimizations() {
+          const qualityLevel = this.performanceMetrics.qualityLevel;
+          
+          // 1. 動態光源優化
+          if (this.dynamicLights) {
+            const lightReduction = Math.floor((1 - qualityLevel) * 2); // 最多減少2個光源
+            
+            this.dynamicLights.pointLights.forEach((light, index) => {
+              light.visible = index < (3 - lightReduction);
+            });
+            
+            this.dynamicLights.spotLights.forEach((light, index) => {
+              light.visible = index < (2 - Math.floor(lightReduction / 2));
+            });
+          }
+          
+          // 2. 卡片效果複雜度調整
+          if (this.cards) {
+            this.cards.forEach(card => {
+              if (card.userData.effects) {
+                const effects = card.userData.effects;
+                
+                // 邊緣發光層數調整
+                if (effects.edgeGlowLayers) {
+                  const enabledLayers = Math.ceil(effects.edgeGlowLayers.length * qualityLevel);
+                  effects.edgeGlowLayers.forEach((layer, index) => {
+                    layer.visible = index < enabledLayers;
+                  });
+                }
+                
+                // 陰影層數調整
+                if (effects.shadowLayers) {
+                  const enabledShadows = Math.ceil(effects.shadowLayers.length * qualityLevel);
+                  effects.shadowLayers.forEach((shadow, index) => {
+                    shadow.visible = index < enabledShadows;
+                  });
+                }
+              }
+            });
+          }
+          
+          // 3. 渲染器設定優化
+          if (this.renderer) {
+            // 低品質時關閉抗鋸齒
+            if (qualityLevel < 0.7) {
+              this.renderer.antialias = false;
+            }
+            
+            // 調整渲染器精度
+            this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1 + qualityLevel));
+          }
+        }
+
+        /**
+         * 獲取性能統計信息
+         */
+        getPerformanceStats() {
+          if (!this.performanceMetrics) return null;
+          
+          return {
+            fps: Math.round(this.performanceMetrics.fps),
+            qualityLevel: Math.round(this.performanceMetrics.qualityLevel * 100),
+            adaptiveFrameTime: this.performanceMetrics.adaptiveFrameTime,
+            isOptimized: this.performanceMetrics.qualityLevel < 1.0
+          };
+        }
+
+        /**
+         * 綜合性能測試與動畫優化
+         */
+        performComprehensiveOptimizationTest() {
+          console.log('🔄 開始綜合性能測試與動畫優化...');
+          
+          const startTime = performance.now();
+          let testResults = {
+            renderingPerformance: 'unknown',
+            lightingComplexity: 'unknown',
+            cardAnimationSmooth: 'unknown',
+            userExperienceRating: 'unknown',
+            optimizationRecommendations: []
+          };
+          
+          try {
+            // 1. 測試渲染性能
+            const renderStart = performance.now();
+            if (this.renderer) {
+              this.renderer.render(this.scene, this.camera);
+            }
+            const renderTime = performance.now() - renderStart;
+            
+            if (renderTime < 8) {
+              testResults.renderingPerformance = '優秀 (<8ms)';
+            } else if (renderTime < 16) {
+              testResults.renderingPerformance = '良好 (8-16ms)';
+            } else {
+              testResults.renderingPerformance = '需優化 (>16ms)';
+              testResults.optimizationRecommendations.push('降低渲染複雜度');
+            }
+            
+            // 2. 測試光影系統複雜度
+            let activeLights = 0;
+            if (this.dynamicLights) {
+              activeLights += this.dynamicLights.pointLights.filter(l => l.visible).length;
+              activeLights += this.dynamicLights.spotLights.filter(l => l.visible).length;
+            }
+            
+            if (activeLights <= 3) {
+              testResults.lightingComplexity = '最適化';
+            } else if (activeLights <= 5) {
+              testResults.lightingComplexity = '適中';
+            } else {
+              testResults.lightingComplexity = '過於複雜';
+              testResults.optimizationRecommendations.push('減少動態光源數量');
+            }
+            
+            // 3. 測試卡片動畫流暢度
+            const cardCount = this.cards ? this.cards.length : 0;
+            const effectComplexity = this.calculateCardEffectsComplexity();
+            
+            if (cardCount <= 3 && effectComplexity <= 5) {
+              testResults.cardAnimationSmooth = '非常流暢';
+            } else if (cardCount <= 6 && effectComplexity <= 8) {
+              testResults.cardAnimationSmooth = '流暢';
+            } else {
+              testResults.cardAnimationSmooth = '可能卡頓';
+              testResults.optimizationRecommendations.push('簡化卡片特效');
+            }
+            
+            // 4. 綜合用戶體驗評級
+            const currentFPS = this.performanceMetrics ? this.performanceMetrics.fps : 60;
+            const qualityLevel = this.performanceMetrics ? this.performanceMetrics.qualityLevel : 1.0;
+            
+            if (currentFPS >= 55 && qualityLevel >= 0.9) {
+              testResults.userExperienceRating = '極佳';
+            } else if (currentFPS >= 45 && qualityLevel >= 0.7) {
+              testResults.userExperienceRating = '良好';
+            } else if (currentFPS >= 30 && qualityLevel >= 0.5) {
+              testResults.userExperienceRating = '可接受';
+            } else {
+              testResults.userExperienceRating = '需改善';
+              testResults.optimizationRecommendations.push('啟用性能優化模式');
+            }
+            
+            // 5. 動畫節奏舒適度測試
+            const rhythmComfortLevel = this.testAnimationRhythmComfort();
+            if (rhythmComfortLevel < 0.7) {
+              testResults.optimizationRecommendations.push('調整動畫節奏頻率');
+            }
+            
+            const totalTime = performance.now() - startTime;
+            
+            // 輸出詳細測試結果
+            console.log('✅ 性能測試完成 (耗時:', totalTime.toFixed(2), 'ms)');
+            console.log('📊 測試結果:');
+            console.log('  - 渲染性能:', testResults.renderingPerformance);
+            console.log('  - 光影複雜度:', testResults.lightingComplexity);
+            console.log('  - 卡片動畫:', testResults.cardAnimationSmooth);
+            console.log('  - 用戶體驗:', testResults.userExperienceRating);
+            console.log('  - FPS:', currentFPS.toFixed(1));
+            console.log('  - 品質等級:', (qualityLevel * 100).toFixed(0) + '%');
+            
+            if (testResults.optimizationRecommendations.length > 0) {
+              console.log('🔧 優化建議:');
+              testResults.optimizationRecommendations.forEach((rec, index) => {
+                console.log('  ' + (index + 1) + '. ' + rec);
+              });
+            } else {
+              console.log('🎉 系統運行狀態最佳，無需額外優化！');
+            }
+            
+          } catch (error) {
+            console.error('❌ 性能測試過程中發生錯誤:', error);
+            testResults.userExperienceRating = '測試失敗';
+          }
+          
+          return testResults;
+        }
+
+        /**
+         * 計算卡片特效複雜度
+         */
+        calculateCardEffectsComplexity() {
+          if (!this.cards) return 0;
+          
+          let totalComplexity = 0;
+          this.cards.forEach(card => {
+            if (card.userData.effects) {
+              const effects = card.userData.effects;
+              if (effects.edgeGlowLayers) totalComplexity += effects.edgeGlowLayers.length;
+              if (effects.shadowLayers) totalComplexity += effects.shadowLayers.length;
+              if (effects.scanLine) totalComplexity += 1;
+              if (effects.frontGlow) totalComplexity += 1;
+            }
+          });
+          
+          return totalComplexity;
+        }
+
+        /**
+         * 測試動畫節奏舒適度
+         */
+        testAnimationRhythmComfort() {
+          const cardCount = this.cards ? this.cards.length : 0;
+          if (cardCount === 0) return 1.0;
+          
+          const rhythm = this.createUnifiedAnimationRhythm(Date.now() * 0.001, cardCount);
+          
+          // 評估頻率是否在舒適範圍內 (0.5-2.5 Hz)
+          const mainFreq = rhythm.mainPulse.frequency;
+          const secondaryFreq = rhythm.secondaryFlash.frequency;
+          
+          let comfortScore = 1.0;
+          
+          // 主頻率舒適度
+          if (mainFreq < 0.5 || mainFreq > 2.5) {
+            comfortScore -= 0.3;
+          }
+          
+          // 次要頻率舒適度
+          if (secondaryFreq < 0.5 || secondaryFreq > 3.0) {
+            comfortScore -= 0.2;
+          }
+          
+          // 振幅舒適度
+          if (rhythm.mainPulse.amplitude > 0.4) {
+            comfortScore -= 0.2;
+          }
+          
+          return Math.max(0, comfortScore);
+        }
+
+        /**
+         * 更新進階Sprite粒子系統 - 節奏化閃爍 (已停用)
+         */
+        /*
         updateAdvancedSpriteParticles(time, deltaTime) {
           if (!this.spriteParticleGroups) return;
           
@@ -3920,8 +5326,9 @@
         }
 
         /**
-         * 更新數據流粒子動畫
+         * 更新數據流粒子動畫 (已停用)
          */
+        /*
         updateDataFlowParticles(time) {
           const positions = this.dataFlowParticles.geometry.attributes.position.array;
           const velocities = this.dataFlowParticles.geometry.attributes.velocity.array;
@@ -3945,7 +5352,7 @@
         }
 
         /**
-         * 更新能量粒子動畫
+         * 更新能量粒子動畫 (已停用)
          */
         updateEnergyParticles(time) {
           const positions = this.energyParticles.geometry.attributes.position.array;
@@ -3966,7 +5373,7 @@
         }
 
         /**
-         * 更新故障粒子動畫
+         * 更新故障粒子動畫 (已停用)
          */
         updateGlitchParticles(time) {
           // 故障效果 - 隨機閃爍和位移
@@ -3988,8 +5395,9 @@
         }
 
         /**
-         * 更新霓虹光環動畫
+         * 更新霓虹光環動畫 (已移除線條光圈效果)
          */
+        /*
         updateNeonRings(time) {
           this.neonRings.forEach((ring, index) => {
             // 持續旋轉
@@ -4004,6 +5412,7 @@
             ring.scale.setScalar(scale);
           });
         }
+        */
 
         /**
          * 更新商標動畫 - 增強版背景動效
@@ -4054,7 +5463,8 @@
             });
           }
           
-          // 更新原有商標光暈效果
+          // 更新原有商標光暈效果 (已移除線條光圈效果)
+          /*
           if (this.logoGlowRings && this.logoGlowRings.length > 0) {
             this.logoGlowRings.forEach((ring, index) => {
               // 獨立的旋轉速度
@@ -4073,6 +5483,7 @@
               ring.position.y = Math.cos(time * 0.25) * 0.6;
             });
           }
+          */
           
           // 更新背景平面動畫
           if (this.backgroundPlane) {

@@ -536,7 +536,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     console.log('===========================================');
 
-    // Check if Three.js animation is available
+    // 直接使用 DOM 卡片展示，避免 Three.js 容器覆蓋問題
+    // 原 Three.js 動畫已註解，使用簡化的 DOM 展示
+    /*
     if (threeJSAvailable && window.threeJSAnimation) {
       console.log('Three.js animation available, starting animation...');
       
@@ -593,35 +595,42 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       });
     } else {
-      console.warn('Three.js animation not available, showing traditional winners directly');
-      console.log('Possible reasons:');
-      console.log('1. Module script failed to load');
-      console.log('2. Three.js CDN is blocked');
-      console.log('3. Browser does not support ES modules');
-      console.log('4. JavaScript error in module script');
+    */
+    
+    // 使用簡化的 DOM 卡片展示 - 統一格式
+    {
+      console.log('使用 DOM 卡片展示中獎結果 (已停用 Three.js 以避免覆蓋問題)');
       
-      // Show traditional winners directly
+      // 顯示中獎者卡片
+      winnersContainer.style.display = 'flex';
+      winnersContainer.style.flexWrap = 'wrap';
+      winnersContainer.style.justifyContent = 'center';
+      winnersContainer.style.gap = '20px';
       winnersContainer.innerHTML = '';
 
       winners.forEach((name, index) => {
-        const col = document.createElement('div');
-        col.className = 'col-12 col-sm-6 col-md-4';
         const card = document.createElement('div');
         card.className = 'card winner-card highlight-winner';
         card.style.animationDelay = `${index * 0.2}s`;
+        card.style.minWidth = '200px';
+        card.style.maxWidth = '250px';
+        card.style.flex = '0 0 auto';
+        
         const cardBody = document.createElement('div');
         cardBody.className = 'card-body text-center';
+        
         const title = document.createElement('h5');
         title.className = 'card-title';
         title.textContent = `🏆 ${name} 🏆`;
+        
         const subtitle = document.createElement('p');
         subtitle.className = 'card-text text-muted';
         subtitle.textContent = '恭喜中獎！';
+        
         cardBody.appendChild(title);
         cardBody.appendChild(subtitle);
         card.appendChild(cardBody);
-        col.appendChild(card);
-        winnersContainer.appendChild(col);
+        winnersContainer.appendChild(card);
       });
 
       // Auto-scroll to winners
