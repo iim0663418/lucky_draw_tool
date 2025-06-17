@@ -323,7 +323,9 @@ function initializeTheme() {
   const darkIcon = document.querySelector('.theme-icon-dark');
 
   function applyTheme(theme) {
-    if (theme === 'dark') {
+    const isDarkMode = theme === 'dark';
+    
+    if (isDarkMode) {
       body.classList.add('dark');
       if (lightIcon) lightIcon.style.display = 'none';
       if (darkIcon) darkIcon.style.display = 'inline';
@@ -331,6 +333,16 @@ function initializeTheme() {
       body.classList.remove('dark');
       if (lightIcon) lightIcon.style.display = 'inline';
       if (darkIcon) darkIcon.style.display = 'none';
+    }
+    
+    // 更新 Three.js 賽博龐克主題色彩
+    if (window.threeJSAnimation && typeof window.threeJSAnimation.updateThemeColors === 'function') {
+      try {
+        window.threeJSAnimation.updateThemeColors(isDarkMode);
+        console.log('Three.js 主題色彩已更新:', isDarkMode ? '深色模式' : '淺色模式');
+      } catch (error) {
+        console.warn('Three.js 主題色彩更新失敗:', error);
+      }
     }
   }
 
@@ -352,6 +364,19 @@ function initializeTheme() {
   } else {
     applyTheme('light'); // Default to light theme
   }
+
+  // 延遲應用三維場景主題色彩，確保 Three.js 已載入
+  setTimeout(() => {
+    const currentTheme = localStorage.getItem('theme') || (prefersDark ? 'dark' : 'light');
+    if (window.threeJSAnimation && typeof window.threeJSAnimation.updateThemeColors === 'function') {
+      try {
+        window.threeJSAnimation.updateThemeColors(currentTheme === 'dark');
+        console.log('延遲應用 Three.js 主題色彩:', currentTheme);
+      } catch (error) {
+        console.warn('延遲 Three.js 主題色彩應用失敗:', error);
+      }
+    }
+  }, 500);
 
   if (themeToggle) {
     themeToggle.addEventListener('click', toggleTheme);
