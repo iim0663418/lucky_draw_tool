@@ -13,19 +13,19 @@
   --input-focus-border-light: #1a1a1a; /* 輸入框焦點邊框 */
   --input-focus-shadow-light: rgba(26, 26, 26, .25); /* 焦點陰影 */
 
-  /* 夜間模式 (Dark Mode) */
-  --primary-color-dark: #e9ecef; /* 淺灰 */
-  --primary-darker-dark: #adb5bd; /* 稍深的淺灰 */
-  --secondary-color-dark: #212529; /* 深黑背景 */
-  --accent-color-dark: #38d980; /* 夜間模式強調色 (稍亮) */
-  --accent-color-hover-dark: #32c071;
-  --text-dark-dark: #e9ecef; /* 主要文字顏色 */
-  --text-light-dark: #1a1a1a; /* 用於淺色背景上的文字 */
-  --text-muted-dark: #6c757d; /* 輔助文字顏色 */
-  --card-bg-dark: #343a40; /* 卡片背景 */
-  --input-border-dark: #495057; /* 輸入框邊框 */
-  --input-focus-border-dark: #e9ecef; /* 輸入框焦點邊框 */
-  --input-focus-shadow-dark: rgba(233, 236, 239, .25); /* 焦點陰影 */
+  /* 夜間模式 (Dark Mode) - 針對 moda 品牌優化 */
+  --primary-color-dark: #f8f9fa; /* 純淨白色文字 */
+  --primary-darker-dark: #e9ecef; /* 稍灰的白色 */
+  --secondary-color-dark: #0d1117; /* 深邃黑色背景 */
+  --accent-color-dark: #00d260; /* moda 綠色 - 更鮮明 */
+  --accent-color-hover-dark: #00b851; /* 懸停時稍深 */
+  --text-dark-dark: #f0f6fc; /* 主要文字 - 柔和白色 */
+  --text-light-dark: #0d1117; /* 用於淺色背景上的文字 */
+  --text-muted-dark: #7d8590; /* 輔助文字 - 優雅灰色 */
+  --card-bg-dark: #161b22; /* 卡片背景 - 深灰 */
+  --input-border-dark: #30363d; /* 輸入框邊框 - 中性灰 */
+  --input-focus-border-dark: #00d260; /* 輸入框焦點 - moda 綠 */
+  --input-focus-shadow-dark: rgba(0, 210, 96, .25); /* 焦點陰影 - 綠色光暈 */
 
   --accent-red: #DC3545; /* 保留用於清除按鈕等 */
 
