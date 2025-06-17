@@ -101,8 +101,814 @@
     <div id="countdownContainer"></div>
   </div>
 
+  <!-- Three.js container for ACT animation -->
+  <div id="threeContainer" style="
+    position: fixed; 
+    top: 50%; 
+    left: 50%; 
+    transform: translate(-50%, -50%);
+    width: 1200px; 
+    height: 700px;
+    max-width: 95vw;
+    max-height: 95vh;
+    z-index: 9999; 
+    display: none; 
+    background: linear-gradient(135deg, rgba(47,27,20,0.95) 0%, rgba(139,69,19,0.9) 50%, rgba(160,82,45,0.85) 100%);
+    border-radius: 15px;
+    box-shadow: 0 20px 60px rgba(139,69,19,0.6), inset 0 0 30px rgba(255,215,0,0.1);
+    border: 2px solid rgba(255,215,0,0.3);
+    overflow: hidden;
+  "></div>
+
   <!-- 引入 confetti 函式庫 -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.4.0/dist/confetti.browser.min.js"></script>
+  <!-- Three.js 動畫系統使用 ES Modules -->
+  <script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
+    
+    console.log('Three.js ES module loaded:', THREE);
+    
+    // Make THREE available globally
+    window.THREE = THREE;
+    
+    // Import and create animation class
+    try {
+      // Simple Three.js animation class
+      class ThreeJSAnimation {
+        constructor() {
+          console.log('ES Module ThreeJSAnimation constructor called');
+          this.scene = null;
+          this.camera = null;
+          this.renderer = null;
+          this.cards = [];
+          this.container = null;
+          this.isAnimating = false;
+          this.animationCallback = null;
+          this.clickHandlerAdded = false;
+        }
+
+        init() {
+          this.container = document.getElementById('threeContainer');
+          
+          if (!this.container) {
+            console.error('Three.js container not found');
+            return false;
+          }
+
+          console.log('Container found:', this.container);
+          
+          // Force container to be visible and get computed style
+          this.container.style.display = 'block';
+          
+          // Wait a moment for CSS to apply, then get dimensions
+          setTimeout(() => {
+            const rect = this.container.getBoundingClientRect();
+            console.log('Container getBoundingClientRect:', rect);
+          }, 10);
+          
+          // Use fallback dimensions if container reports 0 size
+          let width = this.container.clientWidth || 1200;
+          let height = this.container.clientHeight || 700;
+          
+          // If still 0, use window dimensions as fallback
+          if (width === 0 || height === 0) {
+            width = Math.min(window.innerWidth * 0.9, 1200);
+            height = Math.min(window.innerHeight * 0.9, 700);
+            console.log('Using fallback dimensions:', width, 'x', height);
+          }
+          
+          console.log('Final container dimensions:', width, 'x', height);
+
+          this.scene = new THREE.Scene();
+          this.camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+          this.renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+          
+          this.renderer.setSize(width, height);
+          // 使用深藍色背景，完全不透明，避免詭異的視覺效果
+          this.renderer.setClearColor(0x1a1a2e, 1.0);
+          
+          // Style the canvas to ensure it's visible
+          this.renderer.domElement.style.position = 'absolute';
+          this.renderer.domElement.style.top = '0';
+          this.renderer.domElement.style.left = '0';
+          this.renderer.domElement.style.width = '100%';
+          this.renderer.domElement.style.height = '100%';
+          this.renderer.domElement.style.zIndex = '1';
+          
+          this.container.appendChild(this.renderer.domElement);
+          
+          // 設置適當的光照系統
+          // 環境光：提供基礎照明
+          const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+          this.scene.add(ambientLight);
+          
+          // 主方向光：模擬太陽光
+          const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);
+          mainLight.position.set(5, 10, 5);
+          mainLight.castShadow = false; // 關閉陰影以提高性能
+          this.scene.add(mainLight);
+          
+          // 補光：從另一個角度提供柔和照明
+          const fillLight = new THREE.DirectionalLight(0xffffff, 0.3);
+          fillLight.position.set(-5, 0, 3);
+          this.scene.add(fillLight);
+          
+          console.log('光照系統設置完成');
+          
+          // 設置相機位置，提供最佳視角
+          this.camera.position.set(0, 2, 12); // 稍微提高並遠離，獲得更好的視角
+          this.camera.lookAt(0, 0, 0);
+          
+          // 設置相機參數
+          this.camera.near = 0.1;
+          this.camera.far = 100;
+          this.camera.updateProjectionMatrix();
+          
+          console.log('相機設置完成，位置:', this.camera.position);
+          
+          console.log('Three.js initialized successfully');
+          console.log('Scene objects count:', this.scene.children.length);
+          console.log('Camera position:', this.camera.position);
+          console.log('Renderer size:', this.renderer.getSize(new THREE.Vector2()));
+
+          window.addEventListener('resize', () => this.onWindowResize(), false);
+          return true;
+        }
+
+        onWindowResize() {
+          if (!this.camera || !this.renderer || !this.container) return;
+          
+          this.camera.aspect = this.container.clientWidth / this.container.clientHeight;
+          this.camera.updateProjectionMatrix();
+          this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+        }
+
+        createCard(name) {
+          console.log('Creating card for:', name);
+          
+          // 創建合理尺寸的卡片
+          const geometry = new THREE.PlaneGeometry(2, 3);
+          
+          // 卡片正面：使用優雅的金色
+          const frontMaterial = new THREE.MeshLambertMaterial({ 
+            color: 0xffd700, // 金色
+            side: THREE.DoubleSide
+          });
+          
+          // 卡片背面：載入文字貼圖並檢查
+          let backTexture = null;
+          let backMaterial = null;
+          
+          try {
+            backTexture = this.createTextTexture(name);
+            
+            // 檢查貼圖是否成功創建
+            if (backTexture && backTexture.image) {
+              backMaterial = new THREE.MeshLambertMaterial({ 
+                map: backTexture,
+                side: THREE.DoubleSide,
+                color: 0xffffff,
+                transparent: false
+              });
+              console.log('貼圖載入成功:', name);
+            } else {
+              throw new Error('貼圖創建失敗');
+            }
+          } catch (error) {
+            console.warn('貼圖載入失敗，使用後備材質:', error);
+            // 後備材質：純色背景 + 文字
+            backMaterial = new THREE.MeshLambertMaterial({
+              color: 0xffffff,
+              side: THREE.DoubleSide
+            });
+          }
+          
+          const card = new THREE.Mesh(geometry, frontMaterial);
+          
+          card.userData = {
+            frontMaterial: frontMaterial,
+            backMaterial: backMaterial,
+            isFlipped: false,
+            name: name,
+            settled: false,
+            clickable: false
+          };
+          
+          console.log('Card created for:', name);
+          console.log('Front material color:', frontMaterial.color.getHexString());
+          console.log('Back texture size:', backTexture.image.width, 'x', backTexture.image.height);
+          
+          return card;
+        }
+
+        createTextTexture(text) {
+          try {
+            console.log('創建文字貼圖:', text);
+            
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            // 高解析度畫布
+            canvas.width = 512;
+            canvas.height = 768;
+            
+            // 白色背景
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 繪製邊框
+            ctx.strokeStyle = '#ddd';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
+            
+            // 文字樣式
+            ctx.fillStyle = '#1a1a1a';
+            ctx.font = 'bold 72px "Noto Sans TC", "Microsoft JhengHei", sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // 文字陰影
+            ctx.shadowColor = 'rgba(0,0,0,0.3)';
+            ctx.shadowBlur = 4;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+            
+            // 繪製文字
+            ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+            
+            // 創建貼圖並設定正確的方向
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.minFilter = THREE.LinearFilter;
+            texture.magFilter = THREE.LinearFilter;
+            texture.generateMipmaps = false;
+            texture.flipY = false;
+            
+            // 修正貼圖方向 - 設定旋轉中心點和角度
+            texture.center = new THREE.Vector2(0.5, 0.5);
+            texture.rotation = Math.PI; // 180度旋轉修正方向
+            
+            texture.needsUpdate = true;
+            
+            console.log('文字貼圖創建成功:', {
+              text: text,
+              size: `${canvas.width}x${canvas.height}`,
+              font: ctx.font
+            });
+            
+            return texture;
+            
+          } catch (error) {
+            console.error('文字貼圖創建失敗:', error);
+            
+            // 創建簡單的後備貼圖
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 256;
+            canvas.height = 256;
+            ctx.fillStyle = '#ff6b6b';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#fff';
+            ctx.font = '32px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('ERROR', canvas.width / 2, canvas.height / 2);
+            
+            return new THREE.CanvasTexture(canvas);
+          }
+        }
+
+        async startAnimation(winners, callback) {
+          console.log('startAnimation called with winners:', winners);
+          if (this.isAnimating) return;
+          
+          this.isAnimating = true;
+          this.animationCallback = callback;
+          this.cards = [];
+          
+          console.log('Initializing Three.js...');
+          if (!this.init()) {
+            console.error('Three.js initialization failed');
+            this.isAnimating = false;
+            if (callback) callback();
+            return;
+          }
+
+          console.log('Setting container display to block');
+          this.container.style.display = 'block';
+          
+          const positions = this.generatePositions(winners.length);
+          
+          winners.forEach((winner, index) => {
+            const card = this.createCard(winner);
+            
+            const startPos = {
+              x: (Math.random() - 0.5) * 6,  // Smaller random spread
+              y: 10 + Math.random() * 2,     // Higher starting position
+              z: 0
+            };
+            
+            card.position.set(startPos.x, startPos.y, startPos.z);
+            
+            card.userData.targetPosition = positions[index].clone();
+            card.userData.velocity = {
+              x: (Math.random() - 0.5) * 0.02, // 減慢水平運動
+              y: -0.02 - Math.random() * 0.01, // 大幅減慢垂直速度
+              z: 0
+            };
+            card.userData.rotationVelocity = {
+              x: (Math.random() - 0.5) * 0.05,
+              y: (Math.random() - 0.5) * 0.05,
+              z: (Math.random() - 0.5) * 0.05
+            };
+            
+            console.log(`Card ${index} (${winner}):`);
+            console.log('  Start position:', startPos);
+            console.log('  Target position:', positions[index]);
+            console.log('  Target Y after adjustment:', card.userData.targetPosition.y);
+            console.log('  Velocity:', card.userData.velocity);
+            console.log('  Distance to fall:', startPos.y - card.userData.targetPosition.y);
+            
+            this.scene.add(card);
+            this.cards.push(card);
+          });
+
+          console.log('All cards added to scene. Total cards:', this.cards.length);
+          console.log('Scene children count:', this.scene.children.length);
+
+          this.animate();
+        }
+
+        generatePositions(count) {
+          const positions = [];
+          const cols = Math.ceil(Math.sqrt(count));
+          const rows = Math.ceil(count / cols);
+          const spacingX = 2; // Smaller spacing
+          const spacingY = 1.5; // Smaller spacing
+          
+          for (let i = 0; i < count; i++) {
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            const x = (col - (cols - 1) / 2) * spacingX;
+            const y = ((rows - 1) / 2 - row) * spacingY;
+            
+            // Force target Y to be at screen center for better visibility
+            const finalY = 0; // Center of screen
+            positions.push(new THREE.Vector3(x, finalY, 0));
+          }
+          
+          console.log('Generated positions for', count, 'cards:', positions);
+          return positions;
+        }
+
+        animate() {
+          if (!this.isAnimating) return;
+          
+          requestAnimationFrame(() => this.animate());
+          
+          let allSettled = true;
+          
+          // Add frame counter for debugging (but don't spam console)
+          if (!this.frameCount) this.frameCount = 0;
+          this.frameCount++;
+          
+          // 超時強制落地機制 - 避免卡片長時間飄浮
+          const maxFrames = 1200; // 20秒超時 (60fps * 20)
+          if (this.frameCount > maxFrames) {
+            console.log('動畫超時，強制所有卡片落地');
+            this.cards.forEach((card, index) => {
+              if (!card.userData.settled) {
+                card.position.copy(card.userData.targetPosition);
+                card.rotation.set(0, 0, 0);
+                card.userData.settled = true;
+                card.userData.clickable = true;
+                card.renderOrder = 10;
+                console.log(`強制落地：卡片 ${index}`);
+              }
+            });
+          }
+          
+          // 減少輸出頻率
+          if (this.frameCount % 120 === 0) { // 每2秒輸出一次
+            console.log(`動畫進行中，第${this.frameCount}幀，移動中的卡片: ${this.cards.filter(c => !c.userData.settled).length}張`);
+          }
+          
+          this.cards.forEach((card, index) => {
+            if (!card.userData.settled) {
+              const oldPos = card.position.y;
+              card.position.add(card.userData.velocity);
+              card.rotation.x += card.userData.rotationVelocity.x;
+              card.rotation.y += card.userData.rotationVelocity.y;
+              card.rotation.z += card.userData.rotationVelocity.z;
+              
+              card.userData.velocity.y += -0.002; // 減慢重力加速度
+              
+              // 只在關鍵時刻輸出除錯資訊
+              if (this.frameCount === 1 || this.frameCount === 30 || this.frameCount % 60 === 0) {
+                console.log(`動畫第${this.frameCount}幀 - 卡片${index}: Y=${card.position.y.toFixed(1)}, 目標=${card.userData.targetPosition.y.toFixed(1)}, 速度=${card.userData.velocity.y.toFixed(3)}`);
+              }
+              
+              // 改善落地判斷 - 增加緩衝區域避免穿透
+              const distanceToTarget = card.position.y - card.userData.targetPosition.y;
+              const tolerance = 0.1; // 緩衝區域
+              
+              if (distanceToTarget <= tolerance) {
+                // 位置校正：確保卡片精確落在目標位置
+                card.position.copy(card.userData.targetPosition);
+                card.rotation.set(0, 0, 0);
+                card.userData.settled = true;
+                card.userData.clickable = true;
+                
+                // 設定渲染順序，確保卡片在正確層級
+                card.renderOrder = 10;
+                
+                console.log(`卡片 ${index} (${card.userData.name}) 已穩定落地`);
+              } else {
+                allSettled = false;
+                
+                // 除錯輸出
+                if (this.frameCount % 120 === 0) {
+                  console.log(`卡片 ${index} 下落中: Y=${card.position.y.toFixed(2)}, 目標=${card.userData.targetPosition.y.toFixed(2)}, 距離=${distanceToTarget.toFixed(2)}`);
+                }
+              }
+            }
+          });
+          
+          if (allSettled && !this.allCardsFlipped()) {
+            console.log('All cards settled, enabling click handling');
+            this.enableClickHandling();
+          }
+          
+          this.renderer.render(this.scene, this.camera);
+          
+          if (allSettled && this.allCardsFlipped()) {
+            console.log('All cards flipped, ending animation in 2 seconds');
+            setTimeout(() => {
+              this.endAnimation();
+            }, 2000);
+          }
+        }
+
+        enableClickHandling() {
+          if (this.clickHandlerAdded) return;
+          
+          this.clickHandlerAdded = true;
+          this.renderer.domElement.addEventListener('click', (event) => this.onCanvasClick(event), false);
+        }
+
+        onCanvasClick(event) {
+          const rect = this.renderer.domElement.getBoundingClientRect();
+          const mouse = new THREE.Vector2();
+          mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+          mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+          
+          const raycaster = new THREE.Raycaster();
+          raycaster.setFromCamera(mouse, this.camera);
+          
+          // 只檢測已穩定且可點擊的卡片
+          const clickableCards = this.cards.filter(card => 
+            card.userData.settled && 
+            card.userData.clickable && 
+            !card.userData.isFlipped
+          );
+          
+          const intersects = raycaster.intersectObjects(clickableCards);
+          
+          if (intersects.length > 0) {
+            const card = intersects[0].object;
+            console.log('點擊卡片:', card.userData.name);
+            this.flipCard(card);
+          } else {
+            console.log('點擊位置無有效卡片', {
+              mousePos: mouse,
+              clickableCards: clickableCards.length,
+              settledCards: this.cards.filter(c => c.userData.settled).length
+            });
+          }
+        }
+
+        flipCard(card) {
+          card.userData.isFlipped = true;
+          card.userData.clickable = false;
+          
+          const duration = 500;
+          const startTime = Date.now();
+          
+          const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            card.rotation.y = progress * Math.PI;
+            
+            if (progress >= 0.5 && card.material === card.userData.frontMaterial) {
+              card.material = card.userData.backMaterial;
+            }
+            
+            if (progress < 1) {
+              requestAnimationFrame(animate);
+            }
+          };
+          
+          animate();
+        }
+
+        allCardsFlipped() {
+          return this.cards.every(card => card.userData.isFlipped);
+        }
+
+        endAnimation() {
+          this.isAnimating = false;
+          this.container.style.display = 'none';
+          
+          this.cards.forEach(card => {
+            this.scene.remove(card);
+          });
+          this.cards = [];
+          
+          if (this.clickHandlerAdded && this.renderer && this.renderer.domElement) {
+            this.renderer.domElement.removeEventListener('click', this.onCanvasClick, false);
+            this.clickHandlerAdded = false;
+          }
+          
+          if (this.renderer && this.container) {
+            this.container.removeChild(this.renderer.domElement);
+            this.renderer.dispose();
+            this.renderer = null;
+          }
+          
+          if (this.animationCallback) {
+            this.animationCallback();
+          }
+        }
+
+        // === 進階3D功能實現 ===
+        
+        /**
+         * 創建MODA企業背景SVG紋理
+         */
+        createModaSvgTexture() {
+          console.log('創建MODA SVG背景紋理...');
+          
+          try {
+            // 創建SVG畫布
+            const svgData = `
+              <svg width="1024" height="1024" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="modaGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#2c1810;stop-opacity:1" />
+                    <stop offset="50%" style="stop-color:#8b4513;stop-opacity:0.9" />
+                    <stop offset="100%" style="stop-color:#a0522d;stop-opacity:0.8" />
+                  </linearGradient>
+                  <pattern id="modaPattern" x="0" y="0" width="200" height="200" patternUnits="userSpaceOnUse">
+                    <rect width="200" height="200" fill="url(#modaGradient)" opacity="0.3"/>
+                    <text x="100" y="100" font-family="serif" font-size="24" fill="#ffd700" opacity="0.6" text-anchor="middle" dominant-baseline="middle">MODA</text>
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#modaGradient)"/>
+                <rect width="100%" height="100%" fill="url(#modaPattern)"/>
+                <circle cx="512" cy="512" r="300" fill="none" stroke="#ffd700" stroke-width="2" opacity="0.4"/>
+              </svg>
+            `;
+            
+            // 轉換為貼圖
+            const blob = new Blob([svgData], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            
+            const loader = new THREE.TextureLoader();
+            this.modaTexture = loader.load(url, 
+              (texture) => {
+                console.log('MODA背景紋理載入成功');
+                URL.revokeObjectURL(url);
+              },
+              undefined,
+              (error) => {
+                console.error('MODA背景紋理載入失敗:', error);
+                URL.revokeObjectURL(url);
+              }
+            );
+            
+            return this.modaTexture;
+            
+          } catch (error) {
+            console.error('創建MODA紋理失敗:', error);
+            return null;
+          }
+        }
+
+        /**
+         * 預初始化3D場景和資源
+         */
+        preInitializeScene(container) {
+          console.log('預初始化3D場景...');
+          
+          if (this.scene) {
+            console.log('場景已存在，跳過預初始化');
+            return true;
+          }
+          
+          try {
+            // 預創建場景組件
+            this.scene = new THREE.Scene();
+            this.camera = new THREE.PerspectiveCamera(75, 1200/700, 0.1, 1000);
+            
+            // 預載入MODA背景
+            this.createModaSvgTexture();
+            
+            // 創建背景平面
+            this.createBackgroundPlane();
+            
+            // 預置粒子系統
+            this.initParticleSystem();
+            
+            console.log('場景預初始化完成');
+            return true;
+            
+          } catch (error) {
+            console.error('場景預初始化失敗:', error);
+            return false;
+          }
+        }
+
+        /**
+         * 初始化音效系統
+         */
+        initAudioSystem() {
+          console.log('初始化音效系統...');
+          
+          try {
+            // 預載入音效文件
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // 卡片翻轉音效
+            this.loadSound('cardFlip', 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvGAZCECa0y6r');
+            
+            // 成功音效
+            this.loadSound('success', 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvGAZCECa0');
+            
+            console.log('音效系統初始化完成');
+            return true;
+            
+          } catch (error) {
+            console.warn('音效系統初始化失敗:', error);
+            return false;
+          }
+        }
+
+        /**
+         * 載入音效文件
+         */
+        loadSound(name, dataUrl) {
+          // 模擬音效載入 - 實際專案中會載入真實音效文件
+          this.sounds = this.sounds || {};
+          this.sounds[name] = { loaded: true, url: dataUrl };
+        }
+
+        /**
+         * 播放音效
+         */
+        playSound(name) {
+          if (this.sounds && this.sounds[name] && this.sounds[name].loaded) {
+            console.log('播放音效:', name);
+            // 實際播放邏輯
+          }
+        }
+
+        /**
+         * 創建MODA背景平面
+         */
+        createBackgroundPlane() {
+          console.log('創建背景平面...');
+          
+          try {
+            const geometry = new THREE.PlaneGeometry(50, 30);
+            
+            // 使用簡單但美觀的漸變材質（不依賴SVG紋理）
+            const material = new THREE.MeshLambertMaterial({
+              color: 0x8b4513, // 棕色
+              transparent: true,
+              opacity: 0.3
+            });
+            
+            this.backgroundPlane = new THREE.Mesh(geometry, material);
+            this.backgroundPlane.position.set(0, 0, -15); // 放在最後面
+            this.backgroundPlane.renderOrder = -1;
+            
+            if (this.scene) {
+              this.scene.add(this.backgroundPlane);
+              console.log('背景平面已添加到場景，位置:', this.backgroundPlane.position);
+              console.log('場景中物件數量:', this.scene.children.length);
+            } else {
+              console.warn('場景不存在，無法添加背景平面');
+            }
+            
+          } catch (error) {
+            console.error('創建背景平面失敗:', error);
+          }
+        }
+
+        /**
+         * 初始化粒子系統
+         */
+        initParticleSystem() {
+          console.log('初始化粒子系統...');
+          
+          try {
+            const particleCount = 50; // 減少數量方便觀察
+            const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+            
+            // 創建隨機粒子位置和顏色
+            for (let i = 0; i < particleCount; i++) {
+              const i3 = i * 3;
+              
+              // 位置 - 在相機視野內
+              positions[i3] = (Math.random() - 0.5) * 20;     // x: -10 到 10
+              positions[i3 + 1] = (Math.random() - 0.5) * 20; // y: -10 到 10  
+              positions[i3 + 2] = (Math.random() - 0.5) * 10; // z: -5 到 5
+              
+              // 顏色 - 金色調
+              colors[i3] = 1.0;     // r
+              colors[i3 + 1] = 0.8; // g
+              colors[i3 + 2] = 0.0; // b
+            }
+            
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            
+            const material = new THREE.PointsMaterial({
+              size: 5, // 增大尺寸方便看見
+              vertexColors: true,
+              transparent: true,
+              opacity: 0.8
+            });
+            
+            this.particles = new THREE.Points(geometry, material);
+            this.particles.renderOrder = 5; // 在背景之上，卡片之下
+            
+            if (this.scene) {
+              this.scene.add(this.particles);
+              console.log('粒子系統已添加到場景，粒子數量:', particleCount);
+              console.log('粒子位置範圍: X±10, Y±10, Z±5');
+              console.log('場景中物件數量:', this.scene.children.length);
+            } else {
+              console.warn('場景不存在，無法添加粒子系統');
+            }
+            
+          } catch (error) {
+            console.error('粒子系統初始化失敗:', error);
+          }
+        }
+
+        /**
+         * 更新粒子動畫
+         */
+        updateParticles() {
+          if (!this.particles) return;
+          
+          const positions = this.particles.geometry.attributes.position.array;
+          
+          for (let i = 0; i < positions.length; i += 3) {
+            // 緩慢旋轉粒子
+            positions[i] += Math.sin(Date.now() * 0.001 + i) * 0.01;
+            positions[i + 1] += Math.cos(Date.now() * 0.001 + i) * 0.01;
+          }
+          
+          this.particles.geometry.attributes.position.needsUpdate = true;
+          this.particles.rotation.y += 0.001;
+        }
+
+        /**
+         * 測試渲染函數 - 立即渲染一幀檢查場景
+         */
+        testRender() {
+          if (!this.renderer || !this.scene || !this.camera) {
+            console.warn('無法測試渲染 - 缺少必要組件');
+            return;
+          }
+          
+          console.log('執行測試渲染...');
+          console.log('場景物件:', this.scene.children.map(child => child.type));
+          
+          // 更新粒子（如果存在）
+          this.updateParticles();
+          
+          // 渲染一幀
+          this.renderer.render(this.scene, this.camera);
+          
+          console.log('測試渲染完成');
+        }
+      }
+      
+      // Create and expose ThreeJSAnimation instance
+      window.threeJSAnimation = new ThreeJSAnimation();
+      console.log('Three.js animation instance created and attached to window');
+      window.threeJSLoadedSuccessfully = true;
+      
+    } catch (error) {
+      console.error('Failed to create Three.js animation instance:', error);
+      window.threeJSLoadedSuccessfully = false;
+    }
+  </script>
   <script src="js/script.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 

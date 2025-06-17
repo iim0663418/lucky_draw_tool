@@ -1,3 +1,6 @@
+// Three.js animation will be available as window.threeJSAnimation
+console.log('Main script loaded');
+
 const PAGE_SIZE = 5;
 let historyList = [];
 let currentPage = 1;
@@ -151,26 +154,143 @@ function handleAllowRepeatToggle() {
     : '不允許同一參與者重複中獎，中獎者將從名單移除。';
 }
 
-// Show countdown overlay function
+// Show countdown overlay function with optimized resource preloading
 async function showCountdownOverlay() {
   const overlay = document.getElementById('overlay');
   const container = document.getElementById('countdownContainer');
   container.innerHTML = '';
   overlay.classList.add('show');
 
+  // 創建載入進度指示器
+  const progressContainer = document.createElement('div');
+  progressContainer.className = 'preload-progress';
+  progressContainer.style.cssText = `
+    position: absolute;
+    bottom: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: white;
+    font-size: 14px;
+    text-align: center;
+    opacity: 0.8;
+  `;
+  container.appendChild(progressContainer);
+
+  // 預載入資源的 Promise 陣列
+  const preloadPromises = [];
+  let loadedCount = 0;
+  const totalResources = 3; // 預計載入的資源數量
+
+  // 更新載入進度
+  const updateProgress = (message) => {
+    loadedCount++;
+    progressContainer.textContent = `${message} (${loadedCount}/${totalResources})`;
+    console.log(`Preload progress: ${message} (${loadedCount}/${totalResources})`);
+  };
+
+  // 在倒數期間開始預載入資源
+  if (window.threeJSAnimation) {
+    // 1. 預載入 MODA SVG 紋理
+    preloadPromises.push(
+      new Promise(resolve => {
+        try {
+          window.threeJSAnimation.createModaSvgTexture();
+          updateProgress('MODA 背景已載入');
+          resolve();
+        } catch (error) {
+          console.warn('MODA texture preload failed:', error);
+          updateProgress('MODA 背景載入失敗');
+          resolve();
+        }
+      })
+    );
+
+    // 2. 預初始化 Three.js 場景（如果尚未初始化）
+    preloadPromises.push(
+      new Promise(resolve => {
+        try {
+          if (!window.threeJSAnimation.scene) {
+            // 提前初始化場景元件
+            const container = document.getElementById('threeContainer');
+            if (container) {
+              window.threeJSAnimation.preInitializeScene(container);
+              updateProgress('3D 場景已初始化');
+            }
+          } else {
+            updateProgress('3D 場景已就緒');
+          }
+          resolve();
+        } catch (error) {
+          console.warn('Scene preload failed:', error);
+          updateProgress('3D 場景初始化失敗');
+          resolve();
+        }
+      })
+    );
+
+    // 3. 預載入音效資源（即使已靜音，確保快取準備完成）
+    preloadPromises.push(
+      new Promise(resolve => {
+        try {
+          if (window.threeJSAnimation.initAudioSystem) {
+            window.threeJSAnimation.initAudioSystem();
+          }
+          updateProgress('音效系統已準備');
+          resolve();
+        } catch (error) {
+          console.warn('Audio preload failed:', error);
+          updateProgress('音效系統準備失敗');
+          resolve();
+        }
+      })
+    );
+  } else {
+    // 如果 Three.js 動畫不可用，顯示簡單的載入訊息
+    progressContainer.textContent = '準備中...';
+  }
+
+  // 倒數計時與資源載入並行執行
   for (let c = 3; c > 0; c--) {
     const div = document.createElement('div');
     div.className = 'countdown-number';
     div.textContent = c;
     container.appendChild(div);
     void div.offsetWidth;
-    await new Promise(r => setTimeout(r, 1000));
+    
+    // 在最後一秒等待所有預載入完成
+    if (c === 1) {
+      const timeoutPromise = new Promise(r => setTimeout(r, 800));
+      await Promise.race([
+        Promise.all(preloadPromises),
+        timeoutPromise // 最多等待 800ms，避免載入延遲過久
+      ]);
+      
+      if (loadedCount < totalResources) {
+        progressContainer.textContent = `載入完成 (${loadedCount}/${totalResources}) - 開始動畫`;
+      } else {
+        progressContainer.textContent = '所有資源載入完成！';
+      }
+      
+      await new Promise(r => setTimeout(r, 200)); // 剩餘時間
+    } else {
+      await new Promise(r => setTimeout(r, 1000));
+    }
+    
     container.removeChild(div);
   }
+  
   overlay.classList.add('fade-out');
   setTimeout(() => {
     overlay.classList.remove('show', 'fade-out');
   }, 1000);
+
+  console.log('Countdown completed with resource preloading');
+  console.log('Final loading statistics:', {
+    resourcesLoaded: loadedCount,
+    totalResources: totalResources,
+    loadingSuccess: loadedCount === totalResources,
+    threeJSReady: !!window.threeJSAnimation?.scene
+  });
 }
 
 function scrollToWinners() {
@@ -286,6 +406,53 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
+  // Debug function to check Three.js availability
+  window.debugThreeJS = function() {
+    console.log('=== Three.js Debug Information ===');
+    console.log('window.THREE available:', !!window.THREE);
+    console.log('window.threeJSAnimation available:', !!window.threeJSAnimation);
+    if (window.threeJSAnimation) {
+      console.log('threeJSAnimation methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(window.threeJSAnimation)));
+    } else {
+      console.log('threeJSAnimation is not available');
+    }
+    console.log('=====================================');
+  };
+
+  // Call debug function immediately
+  window.debugThreeJS();
+
+  // Try to ensure Three.js animation is available
+  function ensureThreeJSAnimation() {
+    return new Promise((resolve) => {
+      // If already available, resolve immediately
+      if (window.threeJSAnimation && window.threeJSLoadedSuccessfully) {
+        console.log('Three.js animation already available');
+        resolve(true);
+        return;
+      }
+
+      // If loading failed, resolve false immediately
+      if (window.threeJSLoadedSuccessfully === false) {
+        console.warn('Three.js animation loading previously failed');
+        resolve(false);
+        return;
+      }
+
+      // Wait a bit for modules to load
+      setTimeout(() => {
+        if (window.threeJSAnimation && window.threeJSLoadedSuccessfully) {
+          console.log('Three.js animation became available after delay');
+          resolve(true);
+        } else {
+          console.warn('Three.js animation still not available after waiting');
+          console.log('Load success flag:', window.threeJSLoadedSuccessfully);
+          resolve(false);
+        }
+      }, 200); // Give a bit more time for module loading
+    });
+  }
+
   document.getElementById('drawButton').addEventListener('click', async function () {
     const textarea = document.getElementById('nameList');
     const seedInput = document.getElementById('seedInput').value.trim();
@@ -329,33 +496,112 @@ document.addEventListener('DOMContentLoaded', () => {
     const shuffled = await shuffleWithSHA256(participants, seed);
     const winners = shuffled.slice(0, winnerCount);
 
+    // Get winners container
     const winnersContainer = document.getElementById('winnersContainer');
-    winnersContainer.innerHTML = '';
+    
+    // Try to ensure Three.js animation is available
+    const threeJSAvailable = await ensureThreeJSAnimation();
+    
+    // Debug - check Three.js availability again before using
+    console.log('=== Draw Button Clicked - Three.js Check ===');
+    console.log('window.threeJSAnimation available:', !!window.threeJSAnimation);
+    console.log('window.threeJSAnimation type:', typeof window.threeJSAnimation);
+    if (window.threeJSAnimation) {
+      console.log('Available methods:', Object.getOwnPropertyNames(Object.getPrototypeOf(window.threeJSAnimation)));
+    }
+    console.log('===========================================');
 
-    // Display winners
-    winners.forEach((name, index) => {
-      const col = document.createElement('div');
-      col.className = 'col-12 col-sm-6 col-md-4';
-      const card = document.createElement('div');
-      card.className = 'card winner-card highlight-winner'; // Added highlight-winner class
-      card.style.animationDelay = `${index * 0.2}s`;
-      const cardBody = document.createElement('div');
-      cardBody.className = 'card-body text-center';
-      const title = document.createElement('h5');
-      title.className = 'card-title';
-      title.textContent = `🏆 ${name} 🏆`; // Added trophy emojis
-      const subtitle = document.createElement('p');
-      subtitle.className = 'card-text text-muted';
-      subtitle.textContent = '恭喜中獎！';
-      cardBody.appendChild(title);
-      cardBody.appendChild(subtitle);
-      card.appendChild(cardBody);
-      col.appendChild(card);
-      winnersContainer.appendChild(col);
-    });
+    // Check if Three.js animation is available
+    if (threeJSAvailable && window.threeJSAnimation) {
+      console.log('Three.js animation available, starting animation...');
+      
+      // Hide winnersContainer and disable page interactions during animation
+      winnersContainer.style.display = 'none';
+      document.body.style.pointerEvents = 'none';
+      
+      // 添加緊急解鎖機制 - 如果用戶點擊任何地方，恢復交互
+      const emergencyUnlock = () => {
+        document.body.style.pointerEvents = 'auto';
+        document.removeEventListener('click', emergencyUnlock, true);
+        console.log('Emergency unlock activated - page interactions restored');
+      };
+      document.addEventListener('click', emergencyUnlock, true);
+      
+      // Start Three.js animation first
+      await new Promise((resolve) => {
+        window.threeJSAnimation.startAnimation(winners, () => {
+          // Re-enable page interactions
+          document.body.style.pointerEvents = 'auto';
+          
+          // Show winnersContainer and display traditional winners
+          winnersContainer.style.display = 'flex';
+          winnersContainer.style.flexWrap = 'wrap';
+          winnersContainer.style.justifyContent = 'center';
+          winnersContainer.style.gap = '20px';
+          winnersContainer.innerHTML = '';
 
-    // Auto-scroll to winners
-    scrollToWinners();
+          winners.forEach((name, index) => {
+            const card = document.createElement('div');
+            card.className = 'card winner-card highlight-winner';
+            card.style.animationDelay = `${index * 0.2}s`;
+            card.style.minWidth = '200px';
+            card.style.maxWidth = '250px';
+            card.style.flex = '0 0 auto';
+            const cardBody = document.createElement('div');
+            cardBody.className = 'card-body text-center';
+            const title = document.createElement('h5');
+            title.className = 'card-title';
+            title.textContent = `🏆 ${name} 🏆`;
+            const subtitle = document.createElement('p');
+            subtitle.className = 'card-text text-muted';
+            subtitle.textContent = '恭喜中獎！';
+            cardBody.appendChild(title);
+            cardBody.appendChild(subtitle);
+            card.appendChild(cardBody);
+            winnersContainer.appendChild(card);
+          });
+
+          // Auto-scroll to winners
+          scrollToWinners();
+          
+          resolve();
+        });
+      });
+    } else {
+      console.warn('Three.js animation not available, showing traditional winners directly');
+      console.log('Possible reasons:');
+      console.log('1. Module script failed to load');
+      console.log('2. Three.js CDN is blocked');
+      console.log('3. Browser does not support ES modules');
+      console.log('4. JavaScript error in module script');
+      
+      // Show traditional winners directly
+      winnersContainer.innerHTML = '';
+
+      winners.forEach((name, index) => {
+        const col = document.createElement('div');
+        col.className = 'col-12 col-sm-6 col-md-4';
+        const card = document.createElement('div');
+        card.className = 'card winner-card highlight-winner';
+        card.style.animationDelay = `${index * 0.2}s`;
+        const cardBody = document.createElement('div');
+        cardBody.className = 'card-body text-center';
+        const title = document.createElement('h5');
+        title.className = 'card-title';
+        title.textContent = `🏆 ${name} 🏆`;
+        const subtitle = document.createElement('p');
+        subtitle.className = 'card-text text-muted';
+        subtitle.textContent = '恭喜中獎！';
+        cardBody.appendChild(title);
+        cardBody.appendChild(subtitle);
+        card.appendChild(cardBody);
+        col.appendChild(card);
+        winnersContainer.appendChild(col);
+      });
+
+      // Auto-scroll to winners
+      scrollToWinners();
+    }
 
     // Trigger confetti
     // Ensure body is accessible here or re-fetch it.
@@ -445,3 +691,5 @@ document.addEventListener('DOMContentLoaded', () => {
     updateHistoryDisplay();
   });
 });
+
+// Three.js animation instance will be available as window.threeJSAnimation after module loads
