@@ -1072,7 +1072,7 @@
           
           try {
             // 1. 落地霓虹光暈效果 - 使用自訂 Shader Material
-            const auraRadius = 3 * scaleFactor; // 光暈隨卡片縮放
+            const auraRadius = 1.8 * scaleFactor; // 從3縮小至1.8，減少光暈範圍
             const auraGeometry = new THREE.RingGeometry(0.1 * scaleFactor, auraRadius, 32);
             const auraMaterial = this.createNeonShaderMaterial(0x00ffff, glowIntensity * 0.8);
             effects.aura = new THREE.Mesh(auraGeometry, auraMaterial);
@@ -1170,7 +1170,7 @@
             effects.shadowLayers = [];
             
             // 主陰影 - 強烈對比
-            const mainShadowGeometry = new THREE.PlaneGeometry(2.8, 3.8);
+            const mainShadowGeometry = new THREE.PlaneGeometry(2.0, 2.8); // 從2.8x3.8縮小至2.0x2.8
             const mainShadowMaterial = new THREE.MeshBasicMaterial({
               color: cardColors.shadowColor,
               transparent: true,
@@ -1183,7 +1183,7 @@
             effects.shadowLayers.push(mainShadow);
             
             // 軟陰影 - 柔和過渡
-            const softShadowGeometry = new THREE.PlaneGeometry(3.0, 4.0);
+            const softShadowGeometry = new THREE.PlaneGeometry(2.2, 3.0); // 從3.0x4.0縮小至2.2x3.0
             const softShadowMaterial = new THREE.MeshBasicMaterial({
               color: cardColors.shadowColor,
               transparent: true,
@@ -2372,13 +2372,50 @@
               }
             });
             
-            // 添加中心聚光點 - 縮小尺寸減少干擾
-            const spotGeometry = new THREE.CircleGeometry(5, 32); // 從 8 減小到 5
-            const spotMaterial = new THREE.MeshBasicMaterial({
-              color: 0x66cccc, // 改為柔和青色
+            // 創建精細聚光點 - 使用Shader實現細膩光暈
+            const spotGeometry = new THREE.CircleGeometry(3, 32); // 進一步縮小至3
+            const spotMaterial = new THREE.ShaderMaterial({
+              uniforms: {
+                time: { value: 0 },
+                opacity: { value: 0.15 },
+                color: { value: new THREE.Color(0x4dcccc) },
+                intensity: { value: 0.8 }
+              },
+              vertexShader: `
+                varying vec2 vUv;
+                void main() {
+                  vUv = uv;
+                  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+              `,
+              fragmentShader: `
+                uniform float time;
+                uniform float opacity;
+                uniform vec3 color;
+                uniform float intensity;
+                varying vec2 vUv;
+                
+                void main() {
+                  vec2 center = vec2(0.5, 0.5);
+                  float dist = distance(vUv, center);
+                  
+                  // 創建多層漸變光暈
+                  float innerGlow = 1.0 - smoothstep(0.0, 0.3, dist);
+                  innerGlow = pow(innerGlow, 4.0);
+                  
+                  float outerGlow = 1.0 - smoothstep(0.0, 0.8, dist);
+                  outerGlow = pow(outerGlow, 2.0) * 0.3;
+                  
+                  // 添加時間變化
+                  float pulse = sin(time * 2.0) * 0.2 + 0.8;
+                  
+                  float finalAlpha = (innerGlow + outerGlow) * opacity * intensity * pulse;
+                  gl_FragColor = vec4(color, finalAlpha);
+                }
+              `,
               transparent: true,
-              opacity: 0.2, // 降低透明度
-              blending: THREE.AdditiveBlending
+              blending: THREE.AdditiveBlending,
+              depthWrite: false
             });
             
             this.logoSpotlight = new THREE.Mesh(spotGeometry, spotMaterial);
@@ -2542,14 +2579,14 @@
             // 創建512x512的atlas畫布
             const atlasCanvas = document.createElement('canvas');
             const ctx = atlasCanvas.getContext('2d');
-            atlasCanvas.width = 512;
-            atlasCanvas.height = 512;
+            atlasCanvas.width = 256; // 4x4格支援12+種粒子類型
+            atlasCanvas.height = 256;
             
             // 清空畫布
             ctx.fillStyle = 'rgba(0,0,0,0)';
-            ctx.fillRect(0, 0, 512, 512);
+            ctx.fillRect(0, 0, 256, 256);
             
-            // 粒子類型配置
+            // 粒子類型配置 - 擴展細緻粒子系統
             const particleTypes = [
               { name: 'circle', size: 64, color: '#00ffff' },      // 圓形 - 0,0
               { name: 'star', size: 64, color: '#ff00ff' },        // 星形 - 64,0
@@ -2558,13 +2595,18 @@
               { name: 'hexagon', size: 64, color: '#6600ff' },     // 六邊形 - 256,0
               { name: 'triangle', size: 64, color: '#00ff66' },    // 三角形 - 320,0
               { name: 'line', size: 64, color: '#ff0066' },        // 線條 - 0,64
-              { name: 'dot', size: 64, color: '#66ff00' }          // 點 - 64,64
+              { name: 'dot', size: 64, color: '#66ff00' },         // 點 - 64,64
+              // 新增細緻粒子類型
+              { name: 'smallCircle', size: 32, color: '#80cccc' }, // 小圓點
+              { name: 'microDot', size: 16, color: '#66b3b3' },    // 微點
+              { name: 'tinyLine', size: 24, color: '#4d9999' },    // 細線
+              { name: 'sparkle', size: 20, color: '#33cccc' }      // 閃點
             ];
             
             // 繪製各種粒子形狀
             particleTypes.forEach((type, index) => {
-              const x = (index % 8) * 64 + 32; // 8列排列
-              const y = Math.floor(index / 8) * 64 + 32; // 每行64像素
+              const x = (index % 4) * 64 + 32; // 4列排列支援更多粒子類型
+              const y = Math.floor(index / 4) * 64 + 32; // 每行64像素
               
               ctx.save();
               ctx.translate(x, y);
@@ -2649,6 +2691,52 @@
                   ctx.lineWidth = 1;
                   ctx.stroke();
                   break;
+                  
+                // 新增細緻粒子類型繪製
+                case 'smallCircle':
+                  ctx.beginPath();
+                  ctx.arc(0, 0, 6, 0, Math.PI * 2); // 小圓點
+                  ctx.fill();
+                  break;
+                  
+                case 'microDot':
+                  ctx.beginPath();
+                  ctx.arc(0, 0, 3, 0, Math.PI * 2); // 微點
+                  ctx.fill();
+                  // 添加細緻光暈
+                  ctx.beginPath();
+                  ctx.arc(0, 0, 8, 0, Math.PI * 2);
+                  ctx.lineWidth = 0.5;
+                  ctx.stroke();
+                  break;
+                  
+                case 'tinyLine':
+                  ctx.beginPath();
+                  ctx.moveTo(-8, 0); // 細線
+                  ctx.lineTo(8, 0);
+                  ctx.lineWidth = 1;
+                  ctx.stroke();
+                  // 交叉細線
+                  ctx.beginPath();
+                  ctx.moveTo(0, -8);
+                  ctx.lineTo(0, 8);
+                  ctx.stroke();
+                  break;
+                  
+                case 'sparkle':
+                  // 閃爍星形效果
+                  ctx.beginPath();
+                  ctx.moveTo(0, -6);
+                  ctx.lineTo(1.5, -1.5);
+                  ctx.lineTo(6, 0);
+                  ctx.lineTo(1.5, 1.5);
+                  ctx.lineTo(0, 6);
+                  ctx.lineTo(-1.5, 1.5);
+                  ctx.lineTo(-6, 0);
+                  ctx.lineTo(-1.5, -1.5);
+                  ctx.closePath();
+                  ctx.fill();
+                  break;
               }
               
               ctx.restore();
@@ -2665,10 +2753,10 @@
               name: type.name,
               color: type.color,
               uvOffset: {
-                x: (index % 8) / 8,
-                y: Math.floor(index / 8) / 8
+                x: (index % 4) / 4, // 4x4格布局
+                y: Math.floor(index / 4) / 4
               },
-              uvScale: { x: 1/8, y: 1/8 }
+              uvScale: { x: 1/4, y: 1/4 } // 更新UV縮放
             }));
             
             console.log('粒子貼圖Atlas創建完成，包含', particleTypes.length, '種形狀');
@@ -2742,8 +2830,8 @@
             // 數據流粒子群組 - 避開中心區域，增強拖尾效果
             this.createSpriteGroup('dataFlow', {
               count: 35, // 減少數量降低干擾
-              particleTypes: ['line', 'dot', 'diamond', 'cross'],
-              area: { width: 60, height: 20, depth: 8 }, // 更寬但更淺的分布
+              particleTypes: ['microDot', 'tinyLine', 'smallCircle', 'sparkle'], // 使用新的細緻粒子
+              area: { width: 40, height: 15, depth: 6 }, // 縮小分布區域提升細膩度
               movement: { type: 'flow', speed: 0.04 }, // 稍微減速
               rhythm: { frequency: 1.5, amplitude: 0.2, phaseShift: 0 }, // 統一節奏頻率
               trail: { enabled: true, length: 6, fade: 0.85 }, // 縮短拖尾
@@ -2753,8 +2841,8 @@
             // 能量環粒子群組 - 縮小軌道半徑避免遮擋
             this.createSpriteGroup('energyRing', {
               count: 25, // 減少數量
-              particleTypes: ['star', 'hexagon', 'circle'],
-              area: { width: 18, height: 18, depth: 3 }, // 縮小區域
+              particleTypes: ['smallCircle', 'microDot', 'sparkle'], // 更小的能量環粒子
+              area: { width: 12, height: 12, depth: 2 }, // 進一步縮小提升精細度
               movement: { type: 'orbital', radius: 8, speed: 0.015 }, // 縮小軌道半徑
               rhythm: { frequency: 1.5, amplitude: 0.25, phaseShift: Math.PI/3 }, // 統一節奏頻率
               trail: { enabled: true, length: 4, fade: 0.75 }, // 縮短拖尾
@@ -2765,7 +2853,7 @@
             this.createSpriteGroup('glitch', {
               count: 20,
               particleTypes: ['cross', 'triangle', 'diamond', 'star'],
-              area: { width: 40, height: 25, depth: 8 },
+              area: { width: 25, height: 18, depth: 5 }, // 縮小故障粒子區域
               movement: { type: 'random', speed: 0.01 },
               rhythm: { frequency: 8.0, amplitude: 0.6, phaseShift: Math.PI/2 },
               trail: { enabled: false }, // 故障粒子不使用拖尾
@@ -2776,8 +2864,8 @@
             // 背景光點群組 - 多層次深度
             this.createSpriteGroup('ambient', {
               count: 60,
-              particleTypes: ['dot', 'circle', 'star'],
-              area: { width: 80, height: 50, depth: 15 },
+              particleTypes: ['microDot', 'smallCircle', 'tinyLine'], // 細緻背景粒子
+              area: { width: 50, height: 30, depth: 10 }, // 縮小背景粒子區域
               movement: { type: 'drift', speed: 0.005 },
               rhythm: { frequency: 1.0, amplitude: 0.18, phaseShift: Math.PI }, // 調整為與主調相符
               trail: { enabled: true, length: 3, fade: 0.95 },
@@ -2787,8 +2875,8 @@
             // 新增：霓虹拖尾粒子群組
             this.createSpriteGroup('neonTrails', {
               count: 25,
-              particleTypes: ['line', 'diamond'],
-              area: { width: 60, height: 40, depth: 12 },
+              particleTypes: ['tinyLine', 'sparkle'], // 細緻能量流粒子
+              area: { width: 35, height: 25, depth: 8 }, // 縮小能量流粒子區域
               movement: { type: 'wave', amplitude: 3, frequency: 0.5 },
               rhythm: { frequency: 1.5, amplitude: 0.4, phaseShift: Math.PI/4 }, // 統一節奏頻率
               trail: { enabled: true, length: 12, fade: 0.85 },
@@ -2967,10 +3055,10 @@
           geometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3));
           
           const material = new THREE.PointsMaterial({
-            size: 3,
+            size: 1.5, // 從 3 縮小至 1.5，減少大斑塊
             vertexColors: true,
             transparent: true,
-            opacity: 0.7,
+            opacity: 0.5, // 降低透明度增強細膩感
             blending: THREE.AdditiveBlending
           });
           
@@ -3012,10 +3100,10 @@
           geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
           
           const material = new THREE.PointsMaterial({
-            size: 6,
+            size: 2.5, // 從 6 縮小至 2.5，大幅減少斑塊尺寸
             vertexColors: true,
             transparent: true,
-            opacity: 0.8,
+            opacity: 0.5, // 降低透明度避免過於突出
             blending: THREE.AdditiveBlending
           });
           
@@ -3055,10 +3143,10 @@
           geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
           
           const material = new THREE.PointsMaterial({
-            size: 8,
+            size: 3.0, // 從 8 縮小至 3，顯著減少故障粒子的斑塊感
             vertexColors: true,
             transparent: true,
-            opacity: 0.6,
+            opacity: 0.4, // 進一步降低透明度
             blending: THREE.AdditiveBlending
           });
           
@@ -3100,9 +3188,9 @@
           this.gradientHalos = [];
           
           const haloConfigs = [
-            { radius: 15, intensity: 0.15, color: 0x00cccc, pulse: 1.5 },
-            { radius: 22, intensity: 0.1, color: 0x0099cc, pulse: 1.5 },
-            { radius: 30, intensity: 0.08, color: 0x0066cc, pulse: 1.5 }
+            { radius: 8, intensity: 0.12, color: 0x00cccc, pulse: 1.5 },  // 從15縮小至8
+            { radius: 12, intensity: 0.08, color: 0x0099cc, pulse: 1.5 }, // 從22縮小至12
+            { radius: 16, intensity: 0.06, color: 0x0066cc, pulse: 1.5 }  // 從30縮小至16
           ];
           
           haloConfigs.forEach((config, index) => {
@@ -3132,17 +3220,32 @@
                   vec2 center = vec2(0.5, 0.5);
                   float dist = distance(vUv, center);
                   
-                  // 創建柔和漸層
-                  float gradient = 1.0 - smoothstep(0.0, 0.5, dist);
-                  gradient = pow(gradient, 3.0);
+                  // 創建多層次柔和漸層
+                  float innerGradient = 1.0 - smoothstep(0.0, 0.2, dist);
+                  innerGradient = pow(innerGradient, 4.0);
                   
-                  // 添加脈動效果
-                  float pulse = sin(time * pulseSpeed) * 0.3 + 0.7;
+                  float midGradient = 1.0 - smoothstep(0.1, 0.4, dist);
+                  midGradient = pow(midGradient, 2.5) * 0.6;
                   
-                  // 最終透明度
-                  float alpha = gradient * intensity * pulse;
+                  float outerGradient = 1.0 - smoothstep(0.2, 0.5, dist);
+                  outerGradient = pow(outerGradient, 1.5) * 0.3;
                   
-                  gl_FragColor = vec4(color, alpha);
+                  // 組合漸層效果
+                  float combinedGradient = innerGradient + midGradient + outerGradient;
+                  
+                  // 增強脈動效果
+                  float pulse = sin(time * pulseSpeed) * 0.25 + 0.75;
+                  float microPulse = sin(time * pulseSpeed * 3.0) * 0.1 + 0.9;
+                  
+                  // 動態色彩變化
+                  vec3 dynamicColor = color;
+                  float colorShift = sin(time * 0.5) * 0.1;
+                  dynamicColor.rgb += vec3(colorShift * 0.5, colorShift, colorShift * 0.3);
+                  
+                  // 最終透明度與色彩
+                  float alpha = combinedGradient * intensity * pulse * microPulse;
+                  
+                  gl_FragColor = vec4(dynamicColor, alpha);
                 }
               `,
               transparent: true,
@@ -3167,7 +3270,7 @@
           
           // 水平掃光條帶
           for (let i = 0; i < 3; i++) {
-            const stripGeometry = new THREE.PlaneGeometry(80, 1);
+            const stripGeometry = new THREE.PlaneGeometry(40, 0.5); // 從80x1縮小至40x0.5，更細緻
             const stripMaterial = new THREE.ShaderMaterial({
               uniforms: {
                 time: { value: 0 },
@@ -3223,9 +3326,9 @@
           this.ambientLayers = [];
           
           const layerConfigs = [
-            { size: 100, opacity: 0.05, color: 0x003333, z: -40 },
-            { size: 120, opacity: 0.03, color: 0x004444, z: -45 },
-            { size: 140, opacity: 0.02, color: 0x002222, z: -50 }
+            { size: 45, opacity: 0.04, color: 0x003333, z: -40 }, // 從100縮小至45
+            { size: 55, opacity: 0.025, color: 0x004444, z: -45 }, // 從120縮小至55
+            { size: 65, opacity: 0.015, color: 0x002222, z: -50 }  // 從140縮小至65
           ];
           
           layerConfigs.forEach((config, index) => {
@@ -3247,41 +3350,102 @@
         }
 
         /**
-         * 確保賽博龐克主題一致性
+         * 確保賽博龐克主題一致性與視覺平衡
          */
         ensureCyberpunkThemeConsistency() {
           const themeColors = this.getCurrentThemeColors();
           
-          // 統一調整所有視覺效果的色彩協調性
+          // 定義前景/背景強度比例，確保卡片焦點突出
+          const backgroundIntensityMultiplier = 0.6; // 背景元素整體降低40%
+          const focusEnhancement = 1.2; // 前景元素稍微增強
+          
+          // 1. 調整漸層光暈 - 背景層級
           if (this.gradientHalos) {
             this.gradientHalos.forEach((halo, index) => {
               if (halo.material.uniforms) {
-                // 根據主題調整色彩
-                const themeIntensity = this.currentTheme === 'dark' ? 1.0 : 0.7;
-                halo.material.uniforms.intensity.value *= themeIntensity;
+                const themeIntensity = this.currentTheme === 'dark' ? 0.8 : 0.5;
+                const depthFactor = 1.0 - (index * 0.2); // 距離越遠強度越低
+                halo.material.uniforms.intensity.value = 
+                  halo.material.uniforms.intensity.value * themeIntensity * backgroundIntensityMultiplier * depthFactor;
               }
             });
           }
           
-          // 調整掃光條帶強度
+          // 2. 調整掃光條帶 - 背景特效
           if (this.scanStrips) {
-            this.scanStrips.forEach((strip) => {
+            this.scanStrips.forEach((strip, index) => {
               if (strip.material.uniforms) {
-                const baseIntensity = this.currentTheme === 'dark' ? 0.2 : 0.15;
-                strip.material.uniforms.intensity.value = baseIntensity;
+                const baseIntensity = this.currentTheme === 'dark' ? 0.12 : 0.08;
+                const layerFactor = 1.0 - (index * 0.15);
+                strip.material.uniforms.intensity.value = baseIntensity * backgroundIntensityMultiplier * layerFactor;
               }
             });
           }
           
-          // 調整環境光層
+          // 3. 調整環境光層 - 最遠背景
           if (this.ambientLayers) {
-            this.ambientLayers.forEach((layer) => {
-              const baseOpacity = this.currentTheme === 'dark' ? 0.05 : 0.03;
-              layer.material.opacity = baseOpacity;
+            this.ambientLayers.forEach((layer, index) => {
+              const baseOpacity = this.currentTheme === 'dark' ? 0.04 : 0.025;
+              const distanceFactor = 1.0 - (index * 0.3);
+              layer.material.opacity = baseOpacity * backgroundIntensityMultiplier * distanceFactor;
             });
           }
           
-          console.log('賽博龐克主題一致性調整完成');
+          // 4. 調整粒子系統整體強度 - 分層處理
+          if (this.spriteParticleGroups) {
+            this.spriteParticleGroups.forEach((groupData, groupIndex) => {
+              const groupType = groupData.name;
+              let intensityFactor = backgroundIntensityMultiplier;
+              
+              // 根據粒子群組類型調整
+              switch(groupType) {
+                case 'glitch':
+                  intensityFactor *= 0.7; // 故障粒子更加微妙
+                  break;
+                case 'backgroundAmbient':
+                  intensityFactor *= 0.5; // 背景粒子最低
+                  break;
+                case 'energyRing':
+                  intensityFactor *= 0.8; // 能量環中等
+                  break;
+                default:
+                  intensityFactor *= 0.75; // 其他粒子適中
+              }
+              
+              groupData.sprites.forEach(sprite => {
+                if (sprite.userData.rhythm) {
+                  sprite.userData.rhythm.baseOpacity *= intensityFactor;
+                  sprite.userData.originalScale *= (intensityFactor + 0.2); // 尺寸稍微溫和調整
+                }
+              });
+            });
+          }
+          
+          // 5. 調整Logo光暈效果 - 中景元素
+          if (this.logoEnhancedGlows) {
+            this.logoEnhancedGlows.forEach((glow, index) => {
+              if (glow.userData) {
+                const logoFactor = 0.7; // Logo效果適度降低
+                if (glow.material.uniforms) {
+                  glow.userData.originalOpacity *= logoFactor;
+                } else {
+                  glow.userData.originalOpacity *= logoFactor;
+                }
+              }
+            });
+          }
+          
+          // 6. 調整霓虹光環 - 中景裝飾
+          if (this.neonRings) {
+            this.neonRings.forEach((ring, index) => {
+              const neonFactor = 0.6;
+              ring.material.opacity *= neonFactor;
+            });
+          }
+          
+          console.log('賽博龐克主題一致性與視覺平衡調整完成');
+          console.log('背景強度倍數:', backgroundIntensityMultiplier);
+          console.log('前景增強倍數:', focusEnhancement);
         }
 
         /**
@@ -3591,15 +3755,29 @@
                 }
               }
               
-              // 1. 節奏化透明度閃爍: opacity = base + sin(time×freq + phase)×amp
-              const rhythmOpacity = rhythm.baseOpacity + 
+              // 1. 增強節奏化透明度閃爍 - 添加微小閃爍效果
+              const baseRhythmOpacity = rhythm.baseOpacity + 
                 Math.sin(time * rhythm.frequency + rhythm.phase) * rhythm.amplitude;
-              sprite.material.opacity = Math.max(0.1, Math.min(1.0, rhythmOpacity));
               
-              // 2. 節奏化尺寸變化
-              const rhythmScale = userData.originalScale + 
-                Math.sin(time * rhythm.frequency * 0.7 + rhythm.phase) * userData.originalScale * 0.3;
-              sprite.scale.setScalar(Math.max(0.2, rhythmScale));
+              // 添加高頻微閃爍效果
+              const microFlicker = Math.sin(time * 15 + userData.rhythm.phase * 3) * 0.05;
+              const subtleFlicker = Math.sin(time * 8 + userData.rhythm.phase * 2) * 0.08;
+              
+              // 組合所有閃爍效果
+              const finalOpacity = baseRhythmOpacity + microFlicker + subtleFlicker;
+              sprite.material.opacity = Math.max(0.05, Math.min(0.9, finalOpacity));
+              
+              // 2. 增強節奏化尺寸變化 - 添加細微浮動
+              const baseRhythmScale = userData.originalScale + 
+                Math.sin(time * rhythm.frequency * 0.7 + rhythm.phase) * userData.originalScale * 0.2;
+              
+              // 添加緩慢浮動效果
+              const slowFloat = Math.sin(time * 0.5 + userData.rhythm.phase) * userData.originalScale * 0.1;
+              const microPulse = Math.sin(time * 12 + userData.rhythm.phase * 4) * userData.originalScale * 0.03;
+              
+              // 組合所有尺寸變化
+              const finalScale = baseRhythmScale + slowFloat + microPulse;
+              sprite.scale.setScalar(Math.max(0.1, Math.min(2.0, finalScale)));
               
               // 2.5. 霓虹光暈效果
               if (userData.neonGlow) {
@@ -3607,11 +3785,21 @@
                 sprite.material.opacity *= glowPulse;
               }
               
-              // 3. 根據運動類型更新位置
+              // 3. 全域細微位置浮動效果
+              const globalFloatX = Math.sin(time * 0.3 + userData.rhythm.phase) * 0.08;
+              const globalFloatY = Math.cos(time * 0.25 + userData.rhythm.phase * 1.5) * 0.06;
+              const microTremor = {
+                x: Math.sin(time * 18 + userData.rhythm.phase * 5) * 0.02,
+                y: Math.cos(time * 20 + userData.rhythm.phase * 6) * 0.015
+              };
+              
+              // 4. 根據運動類型更新位置
               switch (userData.movement.type) {
                 case 'flow':
-                  // 數據流：線性移動
+                  // 數據流：線性移動 + 細微浮動
                   sprite.position.add(userData.velocity);
+                  sprite.position.x += globalFloatX + microTremor.x;
+                  sprite.position.y += globalFloatY + microTremor.y;
                   
                   // 邊界重置
                   if (Math.abs(sprite.position.x) > 30) {
@@ -3623,12 +3811,12 @@
                   break;
                   
                 case 'orbital':
-                  // 軌道運動：圓形路徑
+                  // 軌道運動：圓形路徑 + 細微震顫
                   userData.orbitalAngle += userData.movement.speed;
-                  const radius = userData.movement.radius + Math.sin(time + userData.rhythm.phase) * 2;
-                  sprite.position.x = Math.cos(userData.orbitalAngle) * radius;
-                  sprite.position.y = Math.sin(userData.orbitalAngle) * radius;
-                  sprite.position.z = userData.originalPosition.z + Math.sin(time * 0.5 + userData.rhythm.phase) * 2;
+                  const radius = userData.movement.radius + Math.sin(time + userData.rhythm.phase) * 1.5;
+                  sprite.position.x = Math.cos(userData.orbitalAngle) * radius + globalFloatX + microTremor.x;
+                  sprite.position.y = Math.sin(userData.orbitalAngle) * radius + globalFloatY + microTremor.y;
+                  sprite.position.z = userData.originalPosition.z + Math.sin(time * 0.5 + userData.rhythm.phase) * 1.5;
                   break;
                   
                 case 'random':
@@ -3839,9 +4027,17 @@
               // 獨立旋轉
               glow.rotation.z += glow.userData.rotationSpeed;
               
-              // 強化脈動效果
+              // 強化脈動效果 - 支援Shader材質
               const pulse = Math.sin(time * glow.userData.pulseSpeed + glow.userData.colorShift) * 0.6 + 0.4;
-              glow.material.opacity = glow.userData.originalOpacity * pulse;
+              
+              if (glow.material.uniforms) {
+                // Shader材質更新
+                glow.material.uniforms.time.value = time;
+                glow.material.uniforms.opacity.value = glow.userData.originalOpacity * pulse;
+              } else {
+                // 普通材質更新
+                glow.material.opacity = glow.userData.originalOpacity * pulse;
+              }
               
               // 動態尺寸變化
               const scaleBase = 1 + Math.sin(time * glow.userData.pulseSpeed * 0.5 + index) * glow.userData.scaleAmplitude;
