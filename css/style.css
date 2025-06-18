@@ -431,3 +431,134 @@ body.dark {
 .theme-toggle-button:hover {
   background-color: var(--current-primary-darker);
 }
+
+/* 載入動畫與互動提示 - moda 黑白黃主題 */
+.loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.9) 0%, rgba(26, 26, 26, 0.95) 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.loading-overlay.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+.loading-spinner {
+  width: 60px;
+  height: 60px;
+  border: 4px solid rgba(255, 215, 0, 0.3);
+  border-top: 4px solid #FFD700;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+}
+
+.loading-text {
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 500;
+  margin-bottom: 30px;
+  text-align: center;
+  opacity: 0.9;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+.loading-text.pulse {
+  animation: textPulse 2s infinite;
+}
+
+.tap-hint {
+  color: #1a1a1a;
+  font-size: 14px;
+  text-align: center;
+  animation: breathe 3s infinite;
+  cursor: pointer;
+  padding: 12px 24px;
+  border: 2px solid #FFD700;
+  border-radius: 25px;
+  background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+  font-weight: 600;
+  box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
+}
+
+.tap-hint:hover {
+  background: linear-gradient(135deg, #FFA500 0%, #FFD700 100%);
+  border-color: #FFA500;
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(255, 215, 0, 0.6);
+}
+
+/* 藝術化的點擊效果 - 黃色主題 */
+.tap-ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 215, 0, 0.8) 0%, transparent 70%);
+  transform: scale(0);
+  animation: ripple 0.6s ease-out;
+  pointer-events: none;
+}
+
+/* 動畫定義 */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes textPulse {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.05); opacity: 1; }
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+/* 暗色模式適配 - 保持 moda 黃色主題 */
+body.dark .loading-overlay {
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.95) 0%, rgba(13, 17, 23, 0.98) 100%);
+}
+
+body.dark .loading-spinner {
+  border-color: rgba(255, 215, 0, 0.4);
+  border-top-color: #FFD700;
+  box-shadow: 0 0 25px rgba(255, 215, 0, 0.4);
+}
+
+body.dark .tap-hint {
+  color: #000000;
+  border-color: #FFD700;
+  background: linear-gradient(135deg, #FFD700 0%, #FFED4E 100%);
+  box-shadow: 0 4px 20px rgba(255, 215, 0, 0.5);
+}
+
+body.dark .tap-hint:hover {
+  background: linear-gradient(135deg, #FFED4E 0%, #FFD700 100%);
+  box-shadow: 0 6px 25px rgba(255, 215, 0, 0.7);
+}

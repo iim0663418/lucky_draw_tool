@@ -8,6 +8,36 @@ let cssScene, cssRenderer;
 let cards = [];
 let cssCards = [];
 let animationId;
+let preloadedTextures = {}; // 預載入的材質快取
+
+// 預載入 3D 資源
+async function preloadResources() {
+  try {
+    // 預載入 moda 品牌 logo 圖片
+    const logoImg = new Image();
+    logoImg.crossOrigin = 'anonymous';
+    logoImg.src = 'https://yt3.googleusercontent.com/D9Q7NjE7vztVgb0c2-OwofJtZOdFjghZWLw0Yj17dW9X9oMrve4Xt-16vN4tOvAvxcRu43TR=s900-c-k-c0x00ffffff-no-rj';
+    
+    await new Promise((resolve) => {
+      logoImg.onload = () => {
+        // 圖片載入成功後創建材質
+        preloadedTextures.logoMaterial = createLogoTexture();
+        resolve();
+      };
+      logoImg.onerror = () => {
+        // 即使圖片載入失敗，也創建後備材質
+        preloadedTextures.logoMaterial = createLogoTexture();
+        resolve();
+      };
+    });
+    
+    console.log('3D resources preloaded successfully');
+  } catch (error) {
+    console.warn('Some resources failed to preload:', error);
+    // 確保即使出錯也有後備材質
+    preloadedTextures.logoMaterial = createLogoTexture();
+  }
+}
 
 // 初始化 3D 場景
 function initThreeScene() {
@@ -34,12 +64,17 @@ function initThreeScene() {
     precision: "highp", // 高精度
     stencil: false,
     depth: true,
-    logarithmicDepthBuffer: false
+    logarithmicDepthBuffer: false,
+    preserveDrawingBuffer: false // 優化性能
   });
   renderer.setSize(window.innerWidth, window.innerHeight);
   // 對於超高品質文字，使用完整的設備像素比
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 3)); 
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // 降低以防止問題
   renderer.outputEncoding = THREE.sRGBEncoding;
+  
+  // 防止面分離的重要設定
+  renderer.sortObjects = true; // 確保物件正確排序
+  renderer.autoClear = true;
   
   // 啟用更好的材質過濾
   renderer.capabilities.getMaxAnisotropy && 
@@ -85,15 +120,15 @@ function initThreeScene() {
   scene.add(directionalLight);
 }
 
-// 創建超高品質文字材質的函數 (SDF-like approach)
-function createUltraTextTexture(text, fontSize = 48, textColor = '#ffffff', bgColor = '#2ECC71') {
+// 創建超高品質文字材質的函數 (SDF-like approach) - moda 黑白黃主題
+function createUltraTextTexture(text, fontSize = 48, textColor = '#1a1a1a', bgColor = '#FFD700') {
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
   
-  // 極高解析度：4K 材質用於最高品質
-  const superRes = 6; // 增加超採樣倍數以獲得更佳效果
-  const baseWidth = 2048;
-  const baseHeight = 1024;
+  // 優化解析度：平衡品質與性能
+  const superRes = 3; // 降低超採樣倍數提升性能
+  const baseWidth = 1024; // 降低基礎解析度
+  const baseHeight = 512;
   canvas.width = baseWidth * superRes;
   canvas.height = baseHeight * superRes;
   
@@ -116,13 +151,13 @@ function createUltraTextTexture(text, fontSize = 48, textColor = '#ffffff', bgCo
   context.textAlign = 'center';
   context.textBaseline = 'middle';
   
-  // 添加更強的文字描邊以增強清晰度
-  context.strokeStyle = 'rgba(0, 0, 0, 0.3)';
-  context.lineWidth = 4 * superRes;
+  // 添加外描邊以增強清晰度 - moda 主題
+  context.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+  context.lineWidth = 3 * superRes;
   context.strokeText(text, canvas.width / 2, canvas.height / 2);
   
-  // 添加白色內描邊提升對比度
-  context.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+  // 添加細微內描邊
+  context.strokeStyle = 'rgba(0, 0, 0, 0.2)';
   context.lineWidth = 1 * superRes;
   context.strokeText(text, canvas.width / 2, canvas.height / 2);
   
@@ -189,29 +224,27 @@ function createCSSCard(winnerName) {
   cardElement.style.borderRadius = '16px';
   cardElement.style.overflow = 'hidden';
   
-  // 正面樣式
+  // 正面樣式 - moda 黃色主題
   const cardFront = cardElement.querySelector('.card-front');
   cardFront.style.position = 'absolute';
   cardFront.style.width = '100%';
   cardFront.style.height = '100%';
-  cardFront.style.background = isDarkMode ? 
-    'linear-gradient(135deg, #00d260, #00b851)' : 
-    'linear-gradient(135deg, #2ECC71, #27AE60)';
+  cardFront.style.background = 'linear-gradient(135deg, #FFD700, #FFA500)';
   cardFront.style.borderRadius = '16px';
-  cardFront.style.boxShadow = '0 15px 35px rgba(0,0,0,0.3)';
+  cardFront.style.boxShadow = '0 15px 35px rgba(255,215,0,0.4)';
   cardFront.style.display = 'flex';
   cardFront.style.alignItems = 'center';
   cardFront.style.justifyContent = 'center';
   cardFront.style.backfaceVisibility = 'hidden';
-  cardFront.style.border = '3px solid rgba(255,255,255,0.3)';
+  cardFront.style.border = '3px solid rgba(255,255,255,0.6)';
   
-  // 背面樣式
+  // 背面樣式 - moda 黑白主題
   const cardBack = cardElement.querySelector('.card-back');
   cardBack.style.position = 'absolute';
   cardBack.style.width = '100%';
   cardBack.style.height = '100%';
   cardBack.style.background = isDarkMode ?
-    'radial-gradient(circle at center, #161b22 0%, #0d1117 70%, #010409 100%)' :
+    'radial-gradient(circle at center, #1a1a1a 0%, #000000 70%, #000000 100%)' :
     'radial-gradient(circle at center, #ffffff 0%, #f8f9fa 70%, #e9ecef 100%)';
   cardBack.style.borderRadius = '16px';
   cardBack.style.boxShadow = '0 15px 35px rgba(0,0,0,0.3)';
@@ -220,9 +253,7 @@ function createCSSCard(winnerName) {
   cardBack.style.justifyContent = 'center';
   cardBack.style.backfaceVisibility = 'hidden';
   cardBack.style.transform = 'rotateY(180deg)';
-  cardBack.style.border = isDarkMode ?
-    '3px solid rgba(0,210,96,0.4)' :
-    '3px solid rgba(46,204,113,0.3)';
+  cardBack.style.border = '3px solid rgba(255,215,0,0.5)';
   
   // Logo 容器
   const logoContainer = cardElement.querySelector('.logo-container');
@@ -233,36 +264,32 @@ function createCSSCard(winnerName) {
   logoContainer.style.alignItems = 'center';
   logoContainer.style.justifyContent = 'center';
   
-  // Logo 圓形背景
+  // Logo 圓形背景 - moda 黃色主題
   const logoCircle = cardElement.querySelector('.logo-circle');
   logoCircle.style.position = 'relative';
   logoCircle.style.width = '160px';
   logoCircle.style.height = '160px';
-  logoCircle.style.background = isDarkMode ?
-    'radial-gradient(circle, #00d260 0%, #00b851 100%)' :
-    'radial-gradient(circle, #2ECC71 0%, #27AE60 100%)';
+  logoCircle.style.background = 'radial-gradient(circle, #FFD700 0%, #FFA500 100%)';
   logoCircle.style.borderRadius = '50%';
   logoCircle.style.display = 'flex';
   logoCircle.style.flexDirection = 'column';
   logoCircle.style.alignItems = 'center';
   logoCircle.style.justifyContent = 'center';
-  logoCircle.style.boxShadow = isDarkMode ?
-    '0 8px 25px rgba(0,210,96,0.5), inset 0 2px 10px rgba(255,255,255,0.2)' :
-    '0 8px 25px rgba(46,204,113,0.4), inset 0 2px 10px rgba(255,255,255,0.3)';
-  logoCircle.style.border = '2px solid rgba(255,255,255,0.4)';
+  logoCircle.style.boxShadow = '0 8px 25px rgba(255,215,0,0.6), inset 0 2px 10px rgba(255,255,255,0.3)';
+  logoCircle.style.border = '3px solid rgba(255,255,255,0.8)';
   
-  // Logo 文字
+  // Logo 文字 - moda 黑色字體
   const logoText = cardElement.querySelector('.logo-text');
-  logoText.style.color = '#ffffff';
+  logoText.style.color = '#1a1a1a';
   logoText.style.fontSize = '28px';
   logoText.style.fontWeight = 'bold';
   logoText.style.fontFamily = "'SF Pro Display', 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif";
-  logoText.style.textShadow = '2px 2px 4px rgba(0,0,0,0.3)';
+  logoText.style.textShadow = '1px 1px 2px rgba(255,255,255,0.3)';
   logoText.style.letterSpacing = '1px';
   
   // Logo 副標題
   const logoSubtitle = cardElement.querySelector('.logo-subtitle');
-  logoSubtitle.style.color = 'rgba(255,255,255,0.9)';
+  logoSubtitle.style.color = 'rgba(26,26,26,0.8)';
   logoSubtitle.style.fontSize = '10px';
   logoSubtitle.style.fontWeight = 'bold';
   logoSubtitle.style.fontFamily = "'SF Pro Display', 'PingFang TC', 'Noto Sans TC', sans-serif";
@@ -277,11 +304,11 @@ function createCSSCard(winnerName) {
   cardContent.style.gap = '10px';
   
   const cardText = cardElement.querySelector('.card-text');
-  cardText.style.color = 'white';
+  cardText.style.color = '#1a1a1a';
   cardText.style.fontSize = '32px';
   cardText.style.fontWeight = 'bold';
   cardText.style.fontFamily = "'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif";
-  cardText.style.textShadow = '2px 2px 4px rgba(0,0,0,0.3)';
+  cardText.style.textShadow = '1px 1px 2px rgba(255,255,255,0.5)';
   cardText.style.letterSpacing = '1px';
   
   const cardDecoration = cardElement.querySelector('.card-decoration');
@@ -464,35 +491,90 @@ function createLogoTexture() {
   texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.magFilter = THREE.LinearFilter;
   texture.format = THREE.RGBAFormat;
-  return new THREE.MeshBasicMaterial({ map: texture });
+  texture.flipY = false; // 避免上下翻轉
+  
+  return new THREE.MeshBasicMaterial({ 
+    map: texture,
+    transparent: true,
+    alphaTest: 0.1,
+    side: THREE.FrontSide
+  });
 }
 
-// 創建 3D 卡牌的工廠函式
+// 創建 3D 卡牌的工廠函式 - 性能優化版本
 function createWinnerCard(winnerName) {
-  // 進一步放大尺寸以獲得最大清晰度
-  const cardWidth = 2.5;
-  const cardHeight = 1.5; // 按比例放大
-  const cardDepth = 0.05;
+  // 優化尺寸：在品質和性能間平衡
+  const cardWidth = 2.0; // 稍微縮小以提升性能
+  const cardHeight = 1.2;
+  const cardDepth = 0.03; // 更薄的卡片減少幾何複雜度
+  
+  // 修正：使用最簡單的幾何體設定，避免面分離
   const geometry = new THREE.BoxGeometry(cardWidth, cardHeight, cardDepth);
   
-  // 創建 6 面材質陣列
+  // 確保幾何體是一個整體，防止面分離
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+  
+  // 修正材質映射：確保材質正確對應到各個面
+  const sideMaterial = new THREE.MeshBasicMaterial({ 
+    color: 0xFFD700,
+    transparent: false,
+    side: THREE.FrontSide
+  }); // moda 黃色側面
+  
+  // 正確創建正面和背面材質
+  const frontMaterial = createUltraTextTexture(winnerName, 60, '#1a1a1a', '#FFD700');
+  let backMaterial;
+  
+  // 安全獲取背面材質
+  try {
+    backMaterial = preloadedTextures.logoMaterial || createLogoTexture();
+  } catch (error) {
+    console.warn('Failed to create logo material, using fallback:', error);
+    backMaterial = new THREE.MeshBasicMaterial({ color: 0x1a1a1a }); // 黑色後備
+  }
+  
+  // 驗證材質創建成功
+  if (!frontMaterial || !backMaterial) {
+    console.error('Material creation failed for card:', winnerName);
+    return null;
+  }
+  
+  // THREE.js BoxGeometry 標準面順序映射
   const materials = [
-    // 右側面 (索引 0)
-    new THREE.MeshBasicMaterial({ color: 0x333333 }),
-    // 左側面 (索引 1)  
-    new THREE.MeshBasicMaterial({ color: 0x333333 }),
-    // 上側面 (索引 2)
-    new THREE.MeshBasicMaterial({ color: 0x333333 }),
-    // 下側面 (索引 3)
-    new THREE.MeshBasicMaterial({ color: 0x333333 }),
-    // 正面 - 得獎者姓名 (索引 4) - 使用超高品質文字渲染
-    createUltraTextTexture(winnerName, 72, '#ffffff', '#2ECC71'),
-    // 背面 - Logo (索引 5)
-    createLogoTexture()
+    sideMaterial,   // 0: 右面 (+X)
+    sideMaterial,   // 1: 左面 (-X) 
+    sideMaterial,   // 2: 上面 (+Y)
+    sideMaterial,   // 3: 下面 (-Y)
+    frontMaterial,  // 4: 前面 (+Z) - 文字面
+    backMaterial    // 5: 後面 (-Z) - Logo 面
   ];
+  
+  console.log(`Created materials for card: ${winnerName}`, {
+    frontMaterial: frontMaterial.map ? 'with texture' : 'basic material',
+    backMaterial: backMaterial.map ? 'with texture' : 'basic material'
+  });
+  
+  // 驗證所有材質都正確創建
+  const invalidMaterials = materials.filter(mat => !mat || typeof mat.dispose !== 'function');
+  if (invalidMaterials.length > 0) {
+    console.error('Invalid materials detected:', invalidMaterials);
+    return null;
+  }
   
   // 創建網格
   const card = new THREE.Mesh(geometry, materials);
+  
+  // 確保卡片正確初始化
+  if (!card) {
+    console.error('Failed to create card mesh for:', winnerName);
+    return null;
+  }
+  
+  // 設置卡片屬性以提升渲染品質
+  card.castShadow = false; // 優化性能
+  card.receiveShadow = false;
+  card.frustumCulled = true; // 啟用視錐體剔除
   
   return card;
 }
@@ -637,12 +719,46 @@ function calculateGridLayout(cardCount) {
   return { positions, scale };
 }
 
-// 同步 WebGL 和 CSS3D 卡牌動畫 (V2 - 加入 gridScale)
-function animateCardPair(webglCard, cssCard, finalPosition, gridScale, delay = 0) {
+// 生成分散的飛舞位置，避免穿模
+function generateScatteredPositions(count) {
+  const positions = [];
+  const minDistance = 3.0; // 最小距離防止穿模
+  
+  // 獲取攝影機視野範圍
+  const fovInRadians = (camera.fov * Math.PI) / 180;
+  const visibleHeight = 2 * Math.tan(fovInRadians / 2) * camera.position.z;
+  const visibleWidth = visibleHeight * camera.aspect;
+  
+  // 根據卡片數量調整分佈策略
+  if (count <= 3) {
+    // 少量卡片：使用預定義的分散位置
+    const presetPositions = [
+      { x: -visibleWidth * 0.3, y: visibleHeight * 0.2, z: 2 },
+      { x: visibleWidth * 0.3, y: -visibleHeight * 0.2, z: 1.5 },
+      { x: 0, y: visibleHeight * 0.4, z: 2.5 }
+    ];
+    return presetPositions.slice(0, count);
+  } else {
+    // 多張卡片：使用圓形分佈避免聚集
+    const radius = Math.max(visibleWidth, visibleHeight) * 0.4;
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2;
+      const r = radius * (0.7 + Math.random() * 0.6); // 隨機半徑
+      const x = Math.cos(angle) * r;
+      const y = Math.sin(angle) * r;
+      const z = 1 + Math.random() * 2;
+      positions.push({ x, y, z });
+    }
+    return positions;
+  }
+}
+
+// 同步 WebGL 和 CSS3D 卡牌動畫 (V3 - 加入防穿模)
+function animateCardPair(webglCard, cssCard, finalPosition, gridScale, delay = 0, scatterPosition) {
   return new Promise((resolve) => {
     // 階段1：起始狀態 (都在中心後方)
     webglCard.position.set(0, 0, -2);
-    webglCard.rotation.set(0, Math.PI, 0); // 背面朝前
+    webglCard.rotation.set(0, 0, 0); // 修正：正面朝前 (前面是 +Z 面，索引 4)
     webglCard.scale.set(0.1, 0.1, 0.1); // 很小
     
     // CSS3D 卡片同步（如果存在）
@@ -652,157 +768,209 @@ function animateCardPair(webglCard, cssCard, finalPosition, gridScale, delay = 0
       cssCard.scale.set(0.0006, 0.0006, 0.0006); // CSS3D 需要更小的縮放
     }
     
-    // 階段2：飛舞狀態 (隨機散開) - 確保在鏡頭安全距離外
-    // 1. 獲取攝影機在 Z=0 平面的可視範圍
-    const fovInRadians = (camera.fov * Math.PI) / 180;
-    const visibleHeight = 2 * Math.tan(fovInRadians / 2) * camera.position.z;
-    const visibleWidth = visibleHeight * camera.aspect;
-
-    // 2. 計算一個更遠、更廣的隨機位置
-    const randomX = (Math.random() - 0.5) * visibleWidth * 1.2;
-    const randomY = (Math.random() - 0.5) * visibleHeight * 1.2;
-    // 確保 Z 軸有足夠的深度，同時又不會太遠
-    const randomZ = (Math.random() * 2) + camera.position.z / 2;
+    // 階段2：飛舞狀態 - 使用預分配的分散位置避免穿模
+    const { x: randomX, y: randomY, z: randomZ } = scatterPosition;
     
     setTimeout(() => {
-      // WebGL 卡片動畫
+      // 優化：使用單一更新函式減少回調次數
+      const syncCSS = () => {
+        if (cssCard) {
+          cssCard.position.copy(webglCard.position);
+          cssCard.rotation.copy(webglCard.rotation);
+          const s = webglCard.scale.x * 0.006;
+          cssCard.scale.set(s, s, s);
+        }
+      };
+
+      // WebGL 卡片動畫 - 縮短時間提升流暢度
       new TWEEN.Tween(webglCard.position)
-        .to({ x: randomX, y: randomY, z: randomZ }, 1000)
-        .easing(TWEEN.Easing.Exponential.Out)
-        .onUpdate(() => {
-          if (cssCard) cssCard.position.copy(webglCard.position);
-        })
+        .to({ x: randomX, y: randomY, z: randomZ }, 800)
+        .easing(TWEEN.Easing.Quadratic.Out)
+        .onUpdate(syncCSS)
         .start();
         
       new TWEEN.Tween(webglCard.scale)
-        .to({ x: 1, y: 1, z: 1 }, 1000)
-        .easing(TWEEN.Easing.Exponential.Out)
-        .onUpdate(() => {
-          if (cssCard) {
-            cssCard.scale.set(
-              webglCard.scale.x * 0.006, 
-              webglCard.scale.y * 0.006, 
-              webglCard.scale.z * 0.006
-            );
-          }
-        })
+        .to({ x: 1, y: 1, z: 1 }, 800)
+        .easing(TWEEN.Easing.Quadratic.Out)
         .start();
         
       new TWEEN.Tween(webglCard.rotation)
-        .to({ x: Math.random() * Math.PI, y: Math.random() * Math.PI, z: Math.random() * Math.PI }, 1000)
-        .easing(TWEEN.Easing.Exponential.Out)
-        .onUpdate(() => {
-          if (cssCard) cssCard.rotation.copy(webglCard.rotation);
-        })
+        .to({ x: Math.random() * Math.PI, y: Math.random() * Math.PI, z: Math.random() * Math.PI }, 800)
+        .easing(TWEEN.Easing.Quadratic.Out)
         .onComplete(() => {
-          // 階段3：飛到最終位置並翻轉到正面
+          // 階段3：飛到最終位置並翻轉到正面 - 優化版本
           setTimeout(() => {
+            // 使用更流暢的最終階段動畫
             new TWEEN.Tween(webglCard.position)
-              .to(finalPosition, 1500)
-              .easing(TWEEN.Easing.Quintic.InOut)
-              .onUpdate(() => {
-                if (cssCard) cssCard.position.copy(webglCard.position);
-              })
+              .to(finalPosition, 1200) // 縮短時間
+              .easing(TWEEN.Easing.Cubic.InOut) // 使用更平滑的 easing
+              .onUpdate(syncCSS)
               .start();
               
             new TWEEN.Tween(webglCard.rotation)
-              .to({ x: 0, y: 0, z: 0 }, 1500) // 正面朝前
-              .easing(TWEEN.Easing.Quintic.InOut)
-              .onUpdate(() => {
-                if (cssCard) cssCard.rotation.copy(webglCard.rotation);
-              })
-              .start(); // 將 onComplete 移到下面的 scale 動畫中
+              .to({ x: 0, y: 0, z: 0 }, 1200) // 正面朝前
+              .easing(TWEEN.Easing.Cubic.InOut)
+              .start();
               
-            // [修改] 讓卡牌縮放到最終計算出的 gridScale
+            // 讓卡牌縮放到最終計算出的 gridScale
             new TWEEN.Tween(webglCard.scale)
-              .to({ x: gridScale, y: gridScale, z: gridScale }, 1500)
-              .easing(TWEEN.Easing.Quintic.InOut)
-              .onUpdate(() => {
-                if (cssCard) {
-                  const s = webglCard.scale.x * 0.006;
-                  cssCard.scale.set(s, s, s);
-                }
-              })
+              .to({ x: gridScale, y: gridScale, z: gridScale }, 1200)
+              .easing(TWEEN.Easing.Cubic.InOut)
               .onComplete(() => resolve()) // 在最後一個動畫完成時 resolve
               .start();
-          }, 500);
+          }, 300); // 縮短間隔時間
         })
         .start();
     }, delay);
   });
 }
 
-// 原版動畫函數 (V2 - 加入 gridScale)
-function animateCard(card, finalPosition, gridScale, delay = 0) {
+// 原版動畫函數 (V3 - 加入防穿模)
+function animateCard(card, finalPosition, gridScale, delay = 0, scatterPosition) {
   return new Promise((resolve) => {
     // 階段1：起始狀態 (都在中心後方)
     card.position.set(0, 0, -2);
-    card.rotation.set(0, Math.PI, 0); // 背面朝前
+    card.rotation.set(0, 0, 0); // 修正：正面朝前 (前面是 +Z 面，索引 4)
     card.scale.set(0.1, 0.1, 0.1); // 很小
     
-    // 階段2：飛舞狀態 (隨機散開) - 確保在鏡頭安全距離外
-    // 1. 獲取攝影機在 Z=0 平面的可視範圍
-    const fovInRadians = (camera.fov * Math.PI) / 180;
-    const visibleHeight = 2 * Math.tan(fovInRadians / 2) * camera.position.z;
-    const visibleWidth = visibleHeight * camera.aspect;
-
-    // 2. 計算一個更遠、更廣的隨機位置
-    const randomX = (Math.random() - 0.5) * visibleWidth * 1.2;
-    const randomY = (Math.random() - 0.5) * visibleHeight * 1.2;
-    // 確保 Z 軸有足夠的深度，同時又不會太遠
-    const randomZ = (Math.random() * 2) + camera.position.z / 2;
+    // 階段2：飛舞狀態 - 使用預分配的分散位置避免穿模
+    const { x: randomX, y: randomY, z: randomZ } = scatterPosition;
     
     setTimeout(() => {
-      // 放大並飛到隨機位置
+      // 優化的單卡動畫 - 更流暢的設定
       new TWEEN.Tween(card.position)
-        .to({ x: randomX, y: randomY, z: randomZ }, 1000)
-        .easing(TWEEN.Easing.Exponential.Out)
+        .to({ x: randomX, y: randomY, z: randomZ }, 800)
+        .easing(TWEEN.Easing.Quadratic.Out)
         .start();
         
       new TWEEN.Tween(card.scale)
-        .to({ x: 1, y: 1, z: 1 }, 1000)
-        .easing(TWEEN.Easing.Exponential.Out)
+        .to({ x: 1, y: 1, z: 1 }, 800)
+        .easing(TWEEN.Easing.Quadratic.Out)
         .start();
         
       new TWEEN.Tween(card.rotation)
-        .to({ x: Math.random() * Math.PI, y: Math.random() * Math.PI, z: Math.random() * Math.PI }, 1000)
-        .easing(TWEEN.Easing.Exponential.Out)
+        .to({ x: Math.random() * Math.PI, y: Math.random() * Math.PI, z: Math.random() * Math.PI }, 800)
+        .easing(TWEEN.Easing.Quadratic.Out)
         .onComplete(() => {
-          // 階段3：飛到最終位置並翻轉到正面
+          // 階段3：飛到最終位置並翻轉到正面 - 優化版本
           setTimeout(() => {
             new TWEEN.Tween(card.position)
-              .to(finalPosition, 1500)
-              .easing(TWEEN.Easing.Quintic.InOut)
+              .to(finalPosition, 1200)
+              .easing(TWEEN.Easing.Cubic.InOut)
               .start();
               
             new TWEEN.Tween(card.rotation)
-              .to({ x: 0, y: 0, z: 0 }, 1500) // 正面朝前
-              .easing(TWEEN.Easing.Quintic.InOut)
+              .to({ x: 0, y: 0, z: 0 }, 1200) // 正面朝前
+              .easing(TWEEN.Easing.Cubic.InOut)
               .start();
               
-            // [修改] 讓卡牌縮放到最終計算出的 gridScale
+            // 讓卡牌縮放到最終計算出的 gridScale
             new TWEEN.Tween(card.scale)
-              .to({ x: gridScale, y: gridScale, z: gridScale }, 1500)
-              .easing(TWEEN.Easing.Quintic.InOut)
+              .to({ x: gridScale, y: gridScale, z: gridScale }, 1200)
+              .easing(TWEEN.Easing.Cubic.InOut)
               .onComplete(() => resolve()) // 在最後一個動畫完成時 resolve
               .start();
-          }, 500);
+          }, 300);
         })
         .start();
     }, delay);
   });
+}
+
+// 顯示載入動畫
+function showLoadingAnimation() {
+  const overlay = document.getElementById('overlay');
+  const loadingOverlay = document.getElementById('loadingOverlay');
+  const loadingText = document.getElementById('loadingText');
+  const tapHint = document.getElementById('tapHint');
+  
+  overlay.classList.add('show');
+  loadingOverlay.classList.add('show');
+  
+  // 載入階段提示
+  const loadingSteps = [
+    '正在準備 3D 場景...',
+    '載入 moda 品牌材質...',
+    '初始化粒子系統...',
+    '準備卡牌動畫...'
+  ];
+  
+  let currentStep = 0;
+  const stepInterval = setInterval(() => {
+    if (currentStep < loadingSteps.length - 1) {
+      currentStep++;
+      loadingText.textContent = loadingSteps[currentStep];
+    } else {
+      clearInterval(stepInterval);
+      // 載入完成，顯示點擊提示
+      loadingText.textContent = '準備就緒！';
+      setTimeout(() => {
+        loadingText.style.display = 'none';
+        tapHint.style.display = 'block';
+        
+        // 讓點擊提示更明顯
+        tapHint.addEventListener('mouseenter', () => {
+          tapHint.style.transform = 'scale(1.1)';
+        });
+        tapHint.addEventListener('mouseleave', () => {
+          tapHint.style.transform = 'scale(1)';
+        });
+      }, 500);
+    }
+  }, 600); // 稍微加快載入步驟顯示
+  
+  return { loadingOverlay, tapHint };
+}
+
+// 創建點擊漣漪效果
+function createTapRipple(event, container) {
+  const ripple = document.createElement('div');
+  ripple.className = 'tap-ripple';
+  
+  const rect = container.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+  
+  ripple.style.left = x + 'px';
+  ripple.style.top = y + 'px';
+  ripple.style.width = '20px';
+  ripple.style.height = '20px';
+  
+  container.appendChild(ripple);
+  
+  setTimeout(() => {
+    ripple.remove();
+  }, 600);
 }
 
 // 3D 卡牌雨動畫主函式
 async function showCardShowerAnimation(winners) {
   return new Promise(async (resolve) => {
-    const overlay = document.getElementById('overlay');
+    // 顯示載入動畫
+    const { loadingOverlay, tapHint } = showLoadingAnimation();
     
-    // 顯示 overlay
-    overlay.classList.add('show');
+    // 確保 3D 場景已初始化
+    if (!scene) {
+      initThreeScene();
+    }
     
-    // 初始化 3D 場景
-    initThreeScene();
+    // 等待用戶點擊
+    const waitForUserInteraction = () => {
+      return new Promise((resolveClick) => {
+        const handleClick = (event) => {
+          createTapRipple(event, loadingOverlay);
+          loadingOverlay.removeEventListener('click', handleClick);
+          resolveClick();
+        };
+        loadingOverlay.addEventListener('click', handleClick);
+      });
+    };
+    
+    // 等待用戶點擊
+    await waitForUserInteraction();
+    
+    // 隱藏載入動畫
+    loadingOverlay.classList.remove('show');
     
     // 手動啟動動畫循環
     animate();
@@ -814,19 +982,27 @@ async function showCardShowerAnimation(winners) {
     winners.forEach(winnerName => {
       // WebGL 卡牌（用於背景效果）
       const webglCard = createWinnerCard(winnerName);
-      cards.push(webglCard);
-      scene.add(webglCard);
       
-      // CSS3D 卡牌（用於清晰文字）- 僅在 CSS3DRenderer 可用時
-      if (cssScene && cssRenderer) {
-        const cssCard = createCSSCard(winnerName);
-        cssCards.push(cssCard);
-        cssScene.add(cssCard);
+      // 確保卡片創建成功才添加到場景
+      if (webglCard) {
+        cards.push(webglCard);
+        scene.add(webglCard);
         
-        // 同步初始位置
-        cssCard.position.copy(webglCard.position);
-        cssCard.rotation.copy(webglCard.rotation);
-        cssCard.scale.copy(webglCard.scale);
+        // CSS3D 卡牌（用於清晰文字）- 僅在 CSS3DRenderer 可用時
+        if (cssScene && cssRenderer) {
+          const cssCard = createCSSCard(winnerName);
+          if (cssCard) {
+            cssCards.push(cssCard);
+            cssScene.add(cssCard);
+            
+            // 同步初始位置
+            cssCard.position.copy(webglCard.position);
+            cssCard.rotation.copy(webglCard.rotation);
+            cssCard.scale.copy(webglCard.scale);
+          }
+        }
+      } else {
+        console.error('Failed to create card for winner:', winnerName);
       }
     });
     
@@ -835,18 +1011,24 @@ async function showCardShowerAnimation(winners) {
     const finalPositions = layout.positions;
     const gridScale = layout.scale; // 獲取網格縮放比例
     
+    // 預先生成分散的飛舞位置，避免穿模
+    const scatterPositions = generateScatteredPositions(cards.length);
+    
     // 等待一小段時間讓場景準備完成
     await new Promise(r => setTimeout(r, 500));
     
-    // [修改] 依序啟動每張卡牌的動畫，傳入 gridScale
+    // 優化：錯開卡片出現時間，減少同時動畫數量
     const animationPromises = cards.map((card, index) => {
+      const delay = index * 150; // 縮短間隔時間但保持錯開效果
+      const scatterPos = scatterPositions[index];
+      
       if (cssCards.length > 0) {
         // 使用 CSS3D + WebGL 混合模式
         const cssCard = cssCards[index];
-        return animateCardPair(card, cssCard, finalPositions[index], gridScale, index * 200);
+        return animateCardPair(card, cssCard, finalPositions[index], gridScale, delay, scatterPos);
       } else {
         // 僅使用 WebGL 模式
-        return animateCard(card, finalPositions[index], gridScale, index * 200);
+        return animateCard(card, finalPositions[index], gridScale, delay, scatterPos);
       }
     });
     
@@ -1146,11 +1328,14 @@ function initializeTheme() {
 }
 
 // Initialize
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   loadHistory();
   populatePrizeOptions();
   updateHistoryDisplay();
   initializeTheme(); // Call theme initialization
+  
+  // 立即開始預載入 3D 資源
+  preloadResources();
   
   // 加入視窗大小調整監聽器
   window.addEventListener('resize', handleWindowResize);
