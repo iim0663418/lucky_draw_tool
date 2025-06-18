@@ -273,37 +273,38 @@ function createCSSCard(winnerName) {
   logoContainer.style.alignItems = 'center';
   logoContainer.style.justifyContent = 'center';
   
-  // Logo 圓形背景 - moda 黃色主題
+  // Logo 圓形背景 - 增強 moda 黃色主題
   const logoCircle = cardElement.querySelector('.logo-circle');
   logoCircle.style.position = 'relative';
   logoCircle.style.width = '160px';
   logoCircle.style.height = '160px';
-  logoCircle.style.background = 'radial-gradient(circle, #FFD700 0%, #FFA500 100%)';
+  logoCircle.style.background = 'radial-gradient(circle, #FFD700 0%, #FFED4E 30%, #FFA500 100%)'; // 更豐富的漸層
   logoCircle.style.borderRadius = '50%';
   logoCircle.style.display = 'flex';
   logoCircle.style.flexDirection = 'column';
   logoCircle.style.alignItems = 'center';
   logoCircle.style.justifyContent = 'center';
-  logoCircle.style.boxShadow = '0 8px 25px rgba(255,215,0,0.6), inset 0 2px 10px rgba(255,255,255,0.3)';
-  logoCircle.style.border = '3px solid rgba(255,255,255,0.8)';
+  logoCircle.style.boxShadow = '0 12px 30px rgba(255,215,0,0.7), inset 0 4px 15px rgba(255,255,255,0.4), 0 0 20px rgba(255,215,0,0.3)'; // 更強烈的光暈
+  logoCircle.style.border = '4px solid rgba(255,255,255,0.9)'; // 更明顯的邊框
   
-  // Logo 文字 - moda 黑色字體
+  // Logo 文字 - moda 白色字體
   const logoText = cardElement.querySelector('.logo-text');
-  logoText.style.color = '#1a1a1a';
-  logoText.style.fontSize = '28px';
-  logoText.style.fontWeight = 'bold';
+  logoText.style.color = '#ffffff';
+  logoText.style.fontSize = '32px'; // 稍微增大字體
+  logoText.style.fontWeight = '900'; // 更粗的字體
   logoText.style.fontFamily = "'SF Pro Display', 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif";
-  logoText.style.textShadow = '1px 1px 2px rgba(255,255,255,0.3)';
-  logoText.style.letterSpacing = '1px';
+  logoText.style.textShadow = '2px 2px 4px rgba(0,0,0,0.5), 0 0 8px rgba(0,0,0,0.3)'; // 更強烈的陰影
+  logoText.style.letterSpacing = '2px'; // 增加字母間距
   
   // Logo 副標題
   const logoSubtitle = cardElement.querySelector('.logo-subtitle');
-  logoSubtitle.style.color = 'rgba(26,26,26,0.8)';
-  logoSubtitle.style.fontSize = '10px';
+  logoSubtitle.style.color = 'rgba(255,255,255,0.9)'; // 改為白色
+  logoSubtitle.style.fontSize = '12px'; // 稍微增大
   logoSubtitle.style.fontWeight = 'bold';
   logoSubtitle.style.fontFamily = "'SF Pro Display', 'PingFang TC', 'Noto Sans TC', sans-serif";
-  logoSubtitle.style.marginTop = '2px';
-  logoSubtitle.style.letterSpacing = '2px';
+  logoSubtitle.style.marginTop = '4px'; // 增加間距
+  logoSubtitle.style.letterSpacing = '3px'; // 增加字母間距
+  logoSubtitle.style.textShadow = '1px 1px 2px rgba(0,0,0,0.5)'; // 添加陰影
   
   // 正面內容樣式
   const cardContent = cardElement.querySelector('.card-content');
@@ -321,8 +322,13 @@ function createCSSCard(winnerName) {
   cardText.style.letterSpacing = '1px';
   
   const cardDecoration = cardElement.querySelector('.card-decoration');
-  cardDecoration.style.fontSize = '24px';
-  cardDecoration.style.opacity = '0.8';
+  cardDecoration.style.fontSize = '28px'; // 增大字體
+  cardDecoration.style.fontWeight = '900'; // 更粗字體
+  cardDecoration.style.color = '#ffffff'; // 白色文字
+  cardDecoration.style.textShadow = '2px 2px 4px rgba(0,0,0,0.7), 0 0 12px rgba(255,215,0,0.5)'; // 強烈陰影 + 金色光暈
+  cardDecoration.style.letterSpacing = '3px'; // 增加字母間距
+  cardDecoration.style.opacity = '0.95'; // 稍微提高不透明度
+  cardDecoration.style.fontFamily = "'SF Pro Display', 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif";
   
   // 創建 CSS3D 物件
   const cssObject = new THREE.CSS3DObject(cardElement);
@@ -1406,34 +1412,73 @@ function fadeOutSparkle(sparkle, trail) {
     .start();
 }
 
-// 卡片顯現動畫
+// 卡片顯現動畫 - 增強版
 function revealCard(webglCard, cssCard, finalPosition, gridScale, resolve) {
   // 設置卡片初始狀態
   webglCard.position.copy(finalPosition);
   webglCard.rotation.set(0, 0, 0);
-  webglCard.scale.set(0.1, 0.1, 0.1);
+  webglCard.scale.set(0.05, 0.05, 0.05); // 更小的起始尺寸
   
   // CSS3D 卡片同步
   if (cssCard) {
     cssCard.position.copy(webglCard.position);
     cssCard.rotation.copy(webglCard.rotation);
-    cssCard.scale.set(0.0006, 0.0006, 0.0006);
+    cssCard.scale.set(0.0003, 0.0003, 0.0003);
   }
   
   scene.add(webglCard);
   if (cssCard) cssScene.add(cssCard);
   
-  // 卡片放大顯現動畫
+  // 多階段卡片顯現動畫
+  // 階段1：快速放大到稍微過大
   new TWEEN.Tween(webglCard.scale)
-    .to({ x: gridScale, y: gridScale, z: gridScale }, 300)
-    .easing(TWEEN.Easing.Back.Out)
+    .to({ x: gridScale * 1.2, y: gridScale * 1.2, z: gridScale * 1.2 }, 200)
+    .easing(TWEEN.Easing.Cubic.Out)
     .onUpdate(() => {
       if (cssCard) {
         const s = webglCard.scale.x * 0.006;
         cssCard.scale.set(s, s, s);
       }
     })
-    .onComplete(() => resolve())
+    .onComplete(() => {
+      // 階段2：回彈到正確大小
+      new TWEEN.Tween(webglCard.scale)
+        .to({ x: gridScale, y: gridScale, z: gridScale }, 150)
+        .easing(TWEEN.Easing.Back.Out)
+        .onUpdate(() => {
+          if (cssCard) {
+            const s = webglCard.scale.x * 0.006;
+            cssCard.scale.set(s, s, s);
+          }
+        })
+        .onComplete(() => {
+          // 階段3：輕微脈動效果
+          addCardPulseEffect(webglCard, cssCard, gridScale);
+          resolve();
+        })
+        .start();
+    })
+    .start();
+}
+
+// 添加卡片脈動效果
+function addCardPulseEffect(webglCard, cssCard, gridScale) {
+  // 輕微的脈動動畫
+  new TWEEN.Tween(webglCard.scale)
+    .to({ 
+      x: gridScale * 1.05, 
+      y: gridScale * 1.05, 
+      z: gridScale * 1.05 
+    }, 800)
+    .easing(TWEEN.Easing.Sinusoidal.InOut)
+    .repeat(2) // 脈動2次
+    .yoyo(true)
+    .onUpdate(() => {
+      if (cssCard) {
+        const s = webglCard.scale.x * 0.006;
+        cssCard.scale.set(s, s, s);
+      }
+    })
     .start();
 }
 
@@ -1696,7 +1741,9 @@ async function showCardShowerAnimation(winners) {
     
     // 新版：光點噴飛轉換動畫 - 物理感更強，避免卡片分離問題
     const animationPromises = cards.map((card, index) => {
-      const delay = index * 200; // 更快的間隔，因為光點動畫更流暢
+      // 動態間隔：前幾張更快，營造爆發感
+      const baseDelay = index < 3 ? 150 : 200;
+      const delay = index * baseDelay; 
       const scatterPos = scatterPositions[index];
       
       if (cssCards.length > 0) {
