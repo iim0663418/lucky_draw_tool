@@ -869,12 +869,23 @@ function createSparkParticle() {
   const material = new THREE.MeshBasicMaterial({
     color: 0xFF6B35, // 橙紅色火花
     transparent: true,
-    opacity: 0.8,
-    emissive: 0xFF4500,
-    emissiveIntensity: 0.6
+    opacity: 0.9 // 增加不透明度補償發光效果
   });
   
-  return new THREE.Mesh(geometry, material);
+  const spark = new THREE.Mesh(geometry, material);
+  
+  // 為火花添加光暈效果
+  const glowGeometry = new THREE.SphereGeometry(0.03, 6, 6);
+  const glowMaterial = new THREE.MeshBasicMaterial({
+    color: 0xFF4500,
+    transparent: true,
+    opacity: 0.4,
+    side: THREE.BackSide
+  });
+  const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+  spark.add(glow);
+  
+  return spark;
 }
 
 // 碎片粒子
@@ -1150,13 +1161,22 @@ function createColorBurst(position, colors = [0xFF1493, 0x00CED1, 0x32CD32, 0xFF
       const particleMaterial = new THREE.MeshBasicMaterial({
         color: color,
         transparent: true,
-        opacity: 0.8,
-        emissive: color,
-        emissiveIntensity: 0.3
+        opacity: 0.9 // 增加不透明度補償發光效果
       });
       
       const particle = new THREE.Mesh(particleGeometry, particleMaterial);
       particle.position.copy(position);
+      
+      // 為彩色粒子添加光暈效果
+      const glowGeometry = new THREE.SphereGeometry(0.04, 6, 6);
+      const glowMaterial = new THREE.MeshBasicMaterial({
+        color: color,
+        transparent: true,
+        opacity: 0.3,
+        side: THREE.BackSide
+      });
+      const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+      particle.add(glow);
       
       const angle = (index * 8 + i) * (Math.PI * 2) / (colors.length * 8);
       const speed = 1.5 + Math.random() * 1;
@@ -1210,24 +1230,33 @@ function createSparkleParticle() {
   const material = new THREE.MeshBasicMaterial({
     color: 0xFFD700,
     transparent: true,
-    opacity: 0.95,
-    emissive: 0xFFAA00, // 發光效果
-    emissiveIntensity: 0.5 // 增強發光強度
+    opacity: 0.95
   });
   
   const particle = new THREE.Mesh(geometry, material);
   particle.scale.set(0, 0, 0); // 初始不可見
   
-  // 添加光暈效果
-  const glowGeometry = new THREE.SphereGeometry(0.06, 8, 8);
-  const glowMaterial = new THREE.MeshBasicMaterial({
-    color: 0xFFD700,
+  // 添加多層光暈效果補償發光
+  const glowGeometry1 = new THREE.SphereGeometry(0.06, 8, 8);
+  const glowMaterial1 = new THREE.MeshBasicMaterial({
+    color: 0xFFAA00,
     transparent: true,
-    opacity: 0.2,
+    opacity: 0.3,
     side: THREE.BackSide
   });
-  const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-  particle.add(glow);
+  const glow1 = new THREE.Mesh(glowGeometry1, glowMaterial1);
+  particle.add(glow1);
+  
+  // 第二層光暈
+  const glowGeometry2 = new THREE.SphereGeometry(0.09, 8, 8);
+  const glowMaterial2 = new THREE.MeshBasicMaterial({
+    color: 0xFFD700,
+    transparent: true,
+    opacity: 0.15,
+    side: THREE.BackSide
+  });
+  const glow2 = new THREE.Mesh(glowGeometry2, glowMaterial2);
+  particle.add(glow2);
   
   return particle;
 }
