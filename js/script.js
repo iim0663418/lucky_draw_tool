@@ -69,8 +69,9 @@ function initThreeScene() {
     // 將 CSS3D 渲染器添加到 overlay
     const overlay = document.getElementById('overlay');
     overlay.appendChild(cssRenderer.domElement);
+    console.log('CSS3DRenderer loaded successfully');
   } else {
-    console.warn('CSS3DRenderer not available, falling back to WebGL only');
+    console.info('CSS3DRenderer not available, using enhanced WebGL-only mode');
     cssScene = null;
     cssRenderer = null;
   }
@@ -90,7 +91,7 @@ function createUltraTextTexture(text, fontSize = 48, textColor = '#ffffff', bgCo
   const context = canvas.getContext('2d');
   
   // 極高解析度：4K 材質用於最高品質
-  const superRes = 4; // 超採樣倍數
+  const superRes = 6; // 增加超採樣倍數以獲得更佳效果
   const baseWidth = 2048;
   const baseHeight = 1024;
   canvas.width = baseWidth * superRes;
@@ -115,9 +116,14 @@ function createUltraTextTexture(text, fontSize = 48, textColor = '#ffffff', bgCo
   context.textAlign = 'center';
   context.textBaseline = 'middle';
   
-  // 添加文字描邊以增強清晰度
-  context.strokeStyle = 'rgba(0, 0, 0, 0.1)';
-  context.lineWidth = 2 * superRes;
+  // 添加更強的文字描邊以增強清晰度
+  context.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+  context.lineWidth = 4 * superRes;
+  context.strokeText(text, canvas.width / 2, canvas.height / 2);
+  
+  // 添加白色內描邊提升對比度
+  context.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+  context.lineWidth = 1 * superRes;
   context.strokeText(text, canvas.width / 2, canvas.height / 2);
   
   // 繪製主文字
@@ -491,20 +497,21 @@ function createWinnerCard(winnerName) {
   return card;
 }
 
-// 動畫循環
+// 動畫循環 (簡化版)
 function animate() {
+  // 這個 ID 會在 stopAnimation 被清除，所以這是循環的條件
   animationId = requestAnimationFrame(animate);
-  
+
   // 如果有動畫庫（TWEEN.js），更新補間動畫
   if (typeof TWEEN !== 'undefined') {
     TWEEN.update();
   }
-  
+
   // 渲染 WebGL 場景（背景和效果）
   if (renderer && scene && camera) {
     renderer.render(scene, camera);
   }
-  
+
   // 渲染 CSS3D 場景（清晰文字）
   if (cssRenderer && cssScene && camera) {
     cssRenderer.render(cssScene, camera);
@@ -521,8 +528,7 @@ function stopAnimation() {
 
 // 清理 3D 場景
 function cleanupThreeScene() {
-  // 停止動畫
-  stopAnimation();
+  // stopAnimation(); // 移到 showCardShowerAnimation 的結尾處呼叫，避免重複
   
   // 清理卡牌
   cards.forEach(card => {
@@ -646,16 +652,23 @@ function animateCardPair(webglCard, cssCard, finalPosition, gridScale, delay = 0
       cssCard.scale.set(0.0006, 0.0006, 0.0006); // CSS3D 需要更小的縮放
     }
     
-    // 階段2：飛舞狀態 (隨機散開)
-    const randomX = (Math.random() - 0.5) * 8;
-    const randomY = (Math.random() - 0.5) * 6;
-    const randomZ = Math.random() * 3 + 1;
+    // 階段2：飛舞狀態 (隨機散開) - 確保在鏡頭安全距離外
+    // 1. 獲取攝影機在 Z=0 平面的可視範圍
+    const fovInRadians = (camera.fov * Math.PI) / 180;
+    const visibleHeight = 2 * Math.tan(fovInRadians / 2) * camera.position.z;
+    const visibleWidth = visibleHeight * camera.aspect;
+
+    // 2. 計算一個更遠、更廣的隨機位置
+    const randomX = (Math.random() - 0.5) * visibleWidth * 1.2;
+    const randomY = (Math.random() - 0.5) * visibleHeight * 1.2;
+    // 確保 Z 軸有足夠的深度，同時又不會太遠
+    const randomZ = (Math.random() * 2) + camera.position.z / 2;
     
     setTimeout(() => {
       // WebGL 卡片動畫
       new TWEEN.Tween(webglCard.position)
         .to({ x: randomX, y: randomY, z: randomZ }, 1000)
-        .easing(TWEEN.Easing.Cubic.Out)
+        .easing(TWEEN.Easing.Exponential.Out)
         .onUpdate(() => {
           if (cssCard) cssCard.position.copy(webglCard.position);
         })
@@ -663,7 +676,7 @@ function animateCardPair(webglCard, cssCard, finalPosition, gridScale, delay = 0
         
       new TWEEN.Tween(webglCard.scale)
         .to({ x: 1, y: 1, z: 1 }, 1000)
-        .easing(TWEEN.Easing.Cubic.Out)
+        .easing(TWEEN.Easing.Exponential.Out)
         .onUpdate(() => {
           if (cssCard) {
             cssCard.scale.set(
@@ -677,7 +690,7 @@ function animateCardPair(webglCard, cssCard, finalPosition, gridScale, delay = 0
         
       new TWEEN.Tween(webglCard.rotation)
         .to({ x: Math.random() * Math.PI, y: Math.random() * Math.PI, z: Math.random() * Math.PI }, 1000)
-        .easing(TWEEN.Easing.Cubic.Out)
+        .easing(TWEEN.Easing.Exponential.Out)
         .onUpdate(() => {
           if (cssCard) cssCard.rotation.copy(webglCard.rotation);
         })
@@ -686,7 +699,7 @@ function animateCardPair(webglCard, cssCard, finalPosition, gridScale, delay = 0
           setTimeout(() => {
             new TWEEN.Tween(webglCard.position)
               .to(finalPosition, 1500)
-              .easing(TWEEN.Easing.Cubic.InOut)
+              .easing(TWEEN.Easing.Quintic.InOut)
               .onUpdate(() => {
                 if (cssCard) cssCard.position.copy(webglCard.position);
               })
@@ -694,7 +707,7 @@ function animateCardPair(webglCard, cssCard, finalPosition, gridScale, delay = 0
               
             new TWEEN.Tween(webglCard.rotation)
               .to({ x: 0, y: 0, z: 0 }, 1500) // 正面朝前
-              .easing(TWEEN.Easing.Cubic.InOut)
+              .easing(TWEEN.Easing.Quintic.InOut)
               .onUpdate(() => {
                 if (cssCard) cssCard.rotation.copy(webglCard.rotation);
               })
@@ -703,7 +716,7 @@ function animateCardPair(webglCard, cssCard, finalPosition, gridScale, delay = 0
             // [修改] 讓卡牌縮放到最終計算出的 gridScale
             new TWEEN.Tween(webglCard.scale)
               .to({ x: gridScale, y: gridScale, z: gridScale }, 1500)
-              .easing(TWEEN.Easing.Cubic.InOut)
+              .easing(TWEEN.Easing.Quintic.InOut)
               .onUpdate(() => {
                 if (cssCard) {
                   const s = webglCard.scale.x * 0.006;
@@ -727,43 +740,50 @@ function animateCard(card, finalPosition, gridScale, delay = 0) {
     card.rotation.set(0, Math.PI, 0); // 背面朝前
     card.scale.set(0.1, 0.1, 0.1); // 很小
     
-    // 階段2：飛舞狀態 (隨機散開)
-    const randomX = (Math.random() - 0.5) * 8;
-    const randomY = (Math.random() - 0.5) * 6;
-    const randomZ = Math.random() * 3 + 1;
+    // 階段2：飛舞狀態 (隨機散開) - 確保在鏡頭安全距離外
+    // 1. 獲取攝影機在 Z=0 平面的可視範圍
+    const fovInRadians = (camera.fov * Math.PI) / 180;
+    const visibleHeight = 2 * Math.tan(fovInRadians / 2) * camera.position.z;
+    const visibleWidth = visibleHeight * camera.aspect;
+
+    // 2. 計算一個更遠、更廣的隨機位置
+    const randomX = (Math.random() - 0.5) * visibleWidth * 1.2;
+    const randomY = (Math.random() - 0.5) * visibleHeight * 1.2;
+    // 確保 Z 軸有足夠的深度，同時又不會太遠
+    const randomZ = (Math.random() * 2) + camera.position.z / 2;
     
     setTimeout(() => {
       // 放大並飛到隨機位置
       new TWEEN.Tween(card.position)
         .to({ x: randomX, y: randomY, z: randomZ }, 1000)
-        .easing(TWEEN.Easing.Cubic.Out)
+        .easing(TWEEN.Easing.Exponential.Out)
         .start();
         
       new TWEEN.Tween(card.scale)
         .to({ x: 1, y: 1, z: 1 }, 1000)
-        .easing(TWEEN.Easing.Cubic.Out)
+        .easing(TWEEN.Easing.Exponential.Out)
         .start();
         
       new TWEEN.Tween(card.rotation)
         .to({ x: Math.random() * Math.PI, y: Math.random() * Math.PI, z: Math.random() * Math.PI }, 1000)
-        .easing(TWEEN.Easing.Cubic.Out)
+        .easing(TWEEN.Easing.Exponential.Out)
         .onComplete(() => {
           // 階段3：飛到最終位置並翻轉到正面
           setTimeout(() => {
             new TWEEN.Tween(card.position)
               .to(finalPosition, 1500)
-              .easing(TWEEN.Easing.Cubic.InOut)
+              .easing(TWEEN.Easing.Quintic.InOut)
               .start();
               
             new TWEEN.Tween(card.rotation)
               .to({ x: 0, y: 0, z: 0 }, 1500) // 正面朝前
-              .easing(TWEEN.Easing.Cubic.InOut)
+              .easing(TWEEN.Easing.Quintic.InOut)
               .start();
               
             // [修改] 讓卡牌縮放到最終計算出的 gridScale
             new TWEEN.Tween(card.scale)
               .to({ x: gridScale, y: gridScale, z: gridScale }, 1500)
-              .easing(TWEEN.Easing.Cubic.InOut)
+              .easing(TWEEN.Easing.Quintic.InOut)
               .onComplete(() => resolve()) // 在最後一個動畫完成時 resolve
               .start();
           }, 500);
@@ -784,7 +804,7 @@ async function showCardShowerAnimation(winners) {
     // 初始化 3D 場景
     initThreeScene();
     
-    // 開始動畫循環
+    // 手動啟動動畫循環
     animate();
     
     // 創建 WebGL 卡牌（背景和效果）
@@ -840,7 +860,9 @@ async function showCardShowerAnimation(winners) {
     overlay.classList.add('fade-out');
     setTimeout(() => {
       overlay.classList.remove('show', 'fade-out');
-      // 清理 3D 場景
+
+      // 在所有事情都結束後，手動停止動畫循環並清理場景
+      stopAnimation(); 
       cleanupThreeScene();
       resolve();
     }, 1000);
@@ -861,6 +883,28 @@ function handleWindowResize() {
     // 更新 CSS3D 渲染器大小
     if (cssRenderer) {
       cssRenderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // *** 新增的關鍵程式碼 ***
+    // 如果場景中還有卡片，則重新計算並更新它們的位置
+    if (cards.length > 0) {
+      const layout = calculateGridLayout(cards.length);
+      const finalPositions = layout.positions;
+      const gridScale = layout.scale;
+
+      cards.forEach((card, index) => {
+        // 直接將卡片移動到新的最終位置，無需動畫
+        card.position.copy(finalPositions[index]);
+        card.scale.set(gridScale, gridScale, gridScale);
+        
+        // 如果使用 CSS3D，也要同步更新
+        if (cssCards[index]) {
+          const cssCard = cssCards[index];
+          cssCard.position.copy(card.position);
+          const s = card.scale.x * 0.006;
+          cssCard.scale.set(s, s, s);
+        }
+      });
     }
   }
 }
