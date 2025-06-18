@@ -597,13 +597,30 @@ function createWinnerCard(winnerName) {
 }
 
 // 動畫循環 (簡化版)
+// 全域變數存儲爆炸粒子和時間
+let explosionParticles = [];
+let lastTime = performance.now();
+
 function animate() {
   // 這個 ID 會在 stopAnimation 被清除，所以這是循環的條件
   animationId = requestAnimationFrame(animate);
 
+  // 計算 deltaTime
+  const currentTime = performance.now();
+  const deltaTime = (currentTime - lastTime) / 1000; // 轉換為秒
+  lastTime = currentTime;
+
   // 如果有動畫庫（TWEEN.js），更新補間動畫
   if (typeof TWEEN !== 'undefined') {
     TWEEN.update();
+  }
+  
+  // 更新螢幕震動效果
+  updateCameraShake(deltaTime);
+  
+  // 更新爆炸粒子動畫
+  if (explosionParticles.length > 0) {
+    updateExplosionParticles(explosionParticles, deltaTime);
   }
 
   // 渲染 WebGL 場景（背景和效果）
@@ -770,7 +787,414 @@ function generateScatteredPositions(count) {
   }
 }
 
-// === 新增：光點粒子系統 ===
+// === 新增：爆炸粒子系統 ===
+
+// 創建多種爆炸粒子類型
+function createExplosionParticles(position, count = 20) {
+  const particles = [];
+  
+  for (let i = 0; i < count; i++) {
+    const particleType = Math.random();
+    let particle;
+    
+    if (particleType < 0.4) {
+      // 40% 星星粒子
+      particle = createStarParticle();
+    } else if (particleType < 0.7) {
+      // 30% 火花粒子
+      particle = createSparkParticle();
+    } else {
+      // 30% 碎片粒子
+      particle = createDebrisParticle();
+    }
+    
+    // 設置爆炸的隨機方向和速度
+    const angle = Math.random() * Math.PI * 2;
+    const elevation = (Math.random() - 0.5) * Math.PI;
+    const speed = 2 + Math.random() * 4; // 增加爆炸速度
+    
+    const velocity = {
+      x: Math.cos(angle) * Math.cos(elevation) * speed,
+      y: Math.sin(elevation) * speed,
+      z: Math.sin(angle) * Math.cos(elevation) * speed
+    };
+    
+    particle.position.copy(position);
+    particle.userData = { velocity, life: 1.0, maxLife: 1.0 + Math.random() * 0.5 };
+    particles.push(particle);
+    scene.add(particle);
+  }
+  
+  return particles;
+}
+
+// 星星形狀粒子
+function createStarParticle() {
+  const starShape = new THREE.Shape();
+  const outerRadius = 0.04;
+  const innerRadius = 0.02;
+  const spikes = 5;
+  
+  for (let i = 0; i < spikes * 2; i++) {
+    const angle = (i / (spikes * 2)) * Math.PI * 2;
+    const radius = i % 2 === 0 ? outerRadius : innerRadius;
+    const x = Math.cos(angle) * radius;
+    const y = Math.sin(angle) * radius;
+    
+    if (i === 0) starShape.moveTo(x, y);
+    else starShape.lineTo(x, y);
+  }
+  starShape.closePath();
+  
+  const geometry = new THREE.ShapeGeometry(starShape);
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xFFD700,
+    transparent: true,
+    opacity: 0.9,
+    side: THREE.DoubleSide
+  });
+  
+  return new THREE.Mesh(geometry, material);
+}
+
+// 火花粒子
+function createSparkParticle() {
+  const geometry = new THREE.ConeGeometry(0.01, 0.08, 4);
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xFF6B35, // 橙紅色火花
+    transparent: true,
+    opacity: 0.8,
+    emissive: 0xFF4500,
+    emissiveIntensity: 0.6
+  });
+  
+  return new THREE.Mesh(geometry, material);
+}
+
+// 碎片粒子
+function createDebrisParticle() {
+  const geometry = new THREE.BoxGeometry(
+    0.02 + Math.random() * 0.02,
+    0.02 + Math.random() * 0.02,
+    0.02 + Math.random() * 0.02
+  );
+  
+  const colors = [0xFFD700, 0xFF6B35, 0xFF1493, 0x00CED1, 0x32CD32];
+  const color = colors[Math.floor(Math.random() * colors.length)];
+  
+  const material = new THREE.MeshBasicMaterial({
+    color: color,
+    transparent: true,
+    opacity: 0.7
+  });
+  
+  return new THREE.Mesh(geometry, material);
+}
+
+// 更新爆炸粒子動畫
+function updateExplosionParticles(particles, deltaTime = 0.016) {
+  particles.forEach((particle, index) => {
+    if (!particle.userData) return;
+    
+    const { velocity, life, maxLife } = particle.userData;
+    
+    // 更新位置
+    particle.position.x += velocity.x * deltaTime;
+    particle.position.y += velocity.y * deltaTime;
+    particle.position.z += velocity.z * deltaTime;
+    
+    // 模擬重力
+    velocity.y -= 9.8 * deltaTime;
+    
+    // 阻力效果
+    velocity.x *= 0.98;
+    velocity.z *= 0.98;
+    
+    // 旋轉效果
+    particle.rotation.x += velocity.x * deltaTime * 2;
+    particle.rotation.y += velocity.y * deltaTime * 2;
+    particle.rotation.z += velocity.z * deltaTime * 2;
+    
+    // 生命週期
+    particle.userData.life -= deltaTime;
+    const lifeRatio = particle.userData.life / maxLife;
+    
+    // 淡出效果
+    particle.material.opacity = Math.max(0, lifeRatio * 0.8);
+    particle.scale.setScalar(Math.max(0.1, lifeRatio));
+    
+    // 移除死亡粒子
+    if (particle.userData.life <= 0) {
+      scene.remove(particle);
+      particle.geometry.dispose();
+      particle.material.dispose();
+      particles.splice(index, 1);
+    }
+  });
+}
+
+// === 螢幕震動效果系統 ===
+
+// 震動狀態管理
+let cameraShake = {
+  intensity: 0,
+  duration: 0,
+  originalPosition: new THREE.Vector3(),
+  isShaking: false
+};
+
+// 觸發螢幕震動
+function triggerCameraShake(intensity = 0.1, duration = 0.5) {
+  if (camera && !cameraShake.isShaking) {
+    cameraShake.originalPosition.copy(camera.position);
+  }
+  
+  cameraShake.intensity = Math.max(cameraShake.intensity, intensity);
+  cameraShake.duration = Math.max(cameraShake.duration, duration);
+  cameraShake.isShaking = true;
+}
+
+// 更新螢幕震動效果
+function updateCameraShake(deltaTime) {
+  if (!cameraShake.isShaking || !camera) return;
+  
+  if (cameraShake.duration <= 0) {
+    // 震動結束，恢復原始位置
+    camera.position.copy(cameraShake.originalPosition);
+    cameraShake.isShaking = false;
+    cameraShake.intensity = 0;
+    return;
+  }
+  
+  // 計算當前震動強度（隨時間衰減）
+  const currentIntensity = cameraShake.intensity * (cameraShake.duration / 0.5);
+  
+  // 隨機震動偏移
+  const shakeX = (Math.random() - 0.5) * currentIntensity;
+  const shakeY = (Math.random() - 0.5) * currentIntensity;
+  const shakeZ = (Math.random() - 0.5) * currentIntensity * 0.3; // Z軸震動較小
+  
+  // 應用震動到攝影機
+  camera.position.x = cameraShake.originalPosition.x + shakeX;
+  camera.position.y = cameraShake.originalPosition.y + shakeY;
+  camera.position.z = cameraShake.originalPosition.z + shakeZ;
+  
+  // 衰減震動
+  cameraShake.duration -= deltaTime;
+}
+
+// 大爆炸震動效果
+function triggerMegaExplosion(position) {
+  // 創建更多爆炸粒子
+  const mainExplosion = createExplosionParticles(position, 40);
+  
+  // 觸發背景閃光
+  triggerScreenFlash();
+  
+  // 創建衝擊波
+  createShockwave(position);
+  
+  // 延遲第二波爆炸
+  setTimeout(() => {
+    const secondWave = createExplosionParticles(position, 25);
+    triggerCameraShake(0.08, 0.3);
+    createShockwave(position, 0.5, 0.3);
+  }, 100);
+  
+  // 延遲第三波小爆炸
+  setTimeout(() => {
+    const thirdWave = createExplosionParticles(position, 15);
+    triggerCameraShake(0.05, 0.2);
+  }, 200);
+  
+  // 主要震動效果
+  triggerCameraShake(0.15, 0.8);
+  
+  return mainExplosion;
+}
+
+// === 背景爆炸效果系統 ===
+
+// 螢幕閃光效果
+function triggerScreenFlash(intensity = 0.8, duration = 0.15) {
+  // 創建閃光覆蓋層
+  const flash = document.createElement('div');
+  flash.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: radial-gradient(circle, rgba(255,255,255,${intensity}) 0%, rgba(255,215,0,${intensity * 0.5}) 100%);
+    pointer-events: none;
+    z-index: 9998;
+    animation: flashOut ${duration}s ease-out forwards;
+  `;
+  
+  // 添加閃光動畫 CSS
+  if (!document.getElementById('flash-styles')) {
+    const style = document.createElement('style');
+    style.id = 'flash-styles';
+    style.textContent = `
+      @keyframes flashOut {
+        0% { opacity: 1; }
+        100% { opacity: 0; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+  
+  document.body.appendChild(flash);
+  
+  // 移除閃光元素
+  setTimeout(() => {
+    if (flash.parentNode) {
+      flash.parentNode.removeChild(flash);
+    }
+  }, duration * 1000 + 50);
+}
+
+// 創建衝擊波效果
+function createShockwave(position, maxRadius = 1.5, duration = 0.6) {
+  const shockwaveGeometry = new THREE.RingGeometry(0, 0.1, 32, 1);
+  const shockwaveMaterial = new THREE.MeshBasicMaterial({
+    color: 0xFFD700,
+    transparent: true,
+    opacity: 0.8,
+    side: THREE.DoubleSide
+  });
+  
+  const shockwave = new THREE.Mesh(shockwaveGeometry, shockwaveMaterial);
+  shockwave.position.copy(position);
+  
+  // 隨機旋轉
+  shockwave.rotation.x = Math.random() * Math.PI;
+  shockwave.rotation.y = Math.random() * Math.PI;
+  
+  scene.add(shockwave);
+  
+  // 衝擊波擴散動畫
+  new TWEEN.Tween(shockwave.scale)
+    .to({ x: maxRadius * 10, y: maxRadius * 10, z: 1 }, duration * 1000)
+    .easing(TWEEN.Easing.Cubic.Out)
+    .start();
+  
+  // 衝擊波淡出
+  new TWEEN.Tween(shockwaveMaterial)
+    .to({ opacity: 0 }, duration * 1000)
+    .easing(TWEEN.Easing.Cubic.Out)
+    .onComplete(() => {
+      scene.remove(shockwave);
+      shockwaveGeometry.dispose();
+      shockwaveMaterial.dispose();
+    })
+    .start();
+  
+  return shockwave;
+}
+
+// 創建放射狀背景動畫
+function createRadialBurst(position, count = 12) {
+  const bursts = [];
+  
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * Math.PI * 2;
+    const burstGeometry = new THREE.PlaneGeometry(0.1, 0.8);
+    const burstMaterial = new THREE.MeshBasicMaterial({
+      color: 0xFFD700,
+      transparent: true,
+      opacity: 0.6
+    });
+    
+    const burst = new THREE.Mesh(burstGeometry, burstMaterial);
+    burst.position.copy(position);
+    burst.rotation.z = angle;
+    
+    scene.add(burst);
+    bursts.push(burst);
+    
+    // 放射動畫
+    new TWEEN.Tween(burst.scale)
+      .to({ x: 2, y: 5, z: 1 }, 400)
+      .easing(TWEEN.Easing.Cubic.Out)
+      .start();
+    
+    // 淡出動畫
+    new TWEEN.Tween(burstMaterial)
+      .to({ opacity: 0 }, 600)
+      .easing(TWEEN.Easing.Cubic.Out)
+      .onComplete(() => {
+        scene.remove(burst);
+        burstGeometry.dispose();
+        burstMaterial.dispose();
+      })
+      .start();
+  }
+  
+  return bursts;
+}
+
+// 彩虹色爆炸效果
+function createColorBurst(position, colors = [0xFF1493, 0x00CED1, 0x32CD32, 0xFF6B35, 0x9370DB]) {
+  const colorParticles = [];
+  
+  colors.forEach((color, index) => {
+    for (let i = 0; i < 8; i++) {
+      const particleGeometry = new THREE.SphereGeometry(0.02, 8, 8);
+      const particleMaterial = new THREE.MeshBasicMaterial({
+        color: color,
+        transparent: true,
+        opacity: 0.8,
+        emissive: color,
+        emissiveIntensity: 0.3
+      });
+      
+      const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+      particle.position.copy(position);
+      
+      const angle = (index * 8 + i) * (Math.PI * 2) / (colors.length * 8);
+      const speed = 1.5 + Math.random() * 1;
+      
+      scene.add(particle);
+      colorParticles.push(particle);
+      
+      // 彩色粒子擴散
+      new TWEEN.Tween(particle.position)
+        .to({
+          x: position.x + Math.cos(angle) * speed,
+          y: position.y + Math.sin(angle) * speed * 0.5,
+          z: position.z + (Math.random() - 0.5) * speed
+        }, 800)
+        .easing(TWEEN.Easing.Cubic.Out)
+        .start();
+      
+      // 粒子旋轉
+      new TWEEN.Tween(particle.rotation)
+        .to({
+          x: Math.random() * Math.PI * 2,
+          y: Math.random() * Math.PI * 2,
+          z: Math.random() * Math.PI * 2
+        }, 800)
+        .easing(TWEEN.Easing.Cubic.Out)
+        .start();
+      
+      // 粒子淡出
+      new TWEEN.Tween(particleMaterial)
+        .to({ opacity: 0 }, 800)
+        .easing(TWEEN.Easing.Cubic.Out)
+        .onComplete(() => {
+          scene.remove(particle);
+          particleGeometry.dispose();
+          particleMaterial.dispose();
+        })
+        .start();
+    }
+  });
+  
+  return colorParticles;
+}
+
+// === 原有光點粒子系統 ===
 
 // 創建金色光點粒子 - 增強視覺效果
 function createSparkleParticle() {
@@ -821,7 +1245,7 @@ function createSparkleTrail(particle) {
   return trail;
 }
 
-// 光點噴飛到卡片轉換動畫 - 增強物理效果
+// 光點噴飛到卡片轉換動畫 - 增強爆炸效果
 function animateSparkleToCard(webglCard, cssCard, finalPosition, gridScale, delay = 0, scatterPosition) {
   return new Promise((resolve) => {
     // 創建光點粒子
@@ -839,6 +1263,18 @@ function animateSparkleToCard(webglCard, cssCard, finalPosition, gridScale, dela
     sparkle.position.set(initialOffset.x, initialOffset.y, initialOffset.z);
     
     setTimeout(() => {
+      // === 超級爆炸啟動序列 ===
+      
+      // 1. 觸發初始大爆炸
+      const initialExplosion = triggerMegaExplosion(sparkle.position);
+      explosionParticles.push(...initialExplosion);
+      
+      // 2. 創建放射狀背景效果
+      createRadialBurst(sparkle.position, 16);
+      
+      // 3. 創建彩虹色爆炸
+      createColorBurst(sparkle.position);
+      
       // 階段1：光點爆發式噴出 - 添加重力效果
       sparkle.scale.set(1, 1, 1);
       trail.visible = true;
@@ -886,6 +1322,21 @@ function animateSparkleToCard(webglCard, cssCard, finalPosition, gridScale, dela
                           .easing(TWEEN.Easing.Back.InOut)
                           .onUpdate(() => updateSparkleTrail(trail, sparkle.position))
                           .onComplete(() => {
+                            // === 最終爆炸與卡片顯現 ===
+                            
+                            // 1. 小型爆炸標記光點到達
+                            const finalExplosion = createExplosionParticles(finalPosition, 15);
+                            explosionParticles.push(...finalExplosion);
+                            
+                            // 2. 小型震動效果
+                            triggerCameraShake(0.06, 0.3);
+                            
+                            // 3. 小型衝擊波
+                            createShockwave(finalPosition, 0.8, 0.4);
+                            
+                            // 4. 螢幕閃光（較輕微）
+                            triggerScreenFlash(0.4, 0.1);
+                            
                             // 光點消失，卡片顯現
                             fadeOutSparkle(sparkle, trail);
                             revealCard(webglCard, cssCard, finalPosition, gridScale, resolve);
