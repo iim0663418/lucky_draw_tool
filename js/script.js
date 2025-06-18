@@ -8,6 +8,36 @@ let cssScene, cssRenderer;
 let cards = [];
 let cssCards = [];
 let animationId;
+let preloadedTextures = {}; // 預載入的材質快取
+
+// 預載入 3D 資源
+async function preloadResources() {
+  try {
+    // 預載入 moda 品牌 logo 圖片
+    const logoImg = new Image();
+    logoImg.crossOrigin = 'anonymous';
+    logoImg.src = 'https://yt3.googleusercontent.com/D9Q7NjE7vztVgb0c2-OwofJtZOdFjghZWLw0Yj17dW9X9oMrve4Xt-16vN4tOvAvxcRu43TR=s900-c-k-c0x00ffffff-no-rj';
+    
+    await new Promise((resolve) => {
+      logoImg.onload = () => {
+        // 圖片載入成功後創建材質
+        preloadedTextures.logoMaterial = createLogoTexture();
+        resolve();
+      };
+      logoImg.onerror = () => {
+        // 即使圖片載入失敗，也創建後備材質
+        preloadedTextures.logoMaterial = createLogoTexture();
+        resolve();
+      };
+    });
+    
+    console.log('3D resources preloaded successfully');
+  } catch (error) {
+    console.warn('Some resources failed to preload:', error);
+    // 確保即使出錯也有後備材質
+    preloadedTextures.logoMaterial = createLogoTexture();
+  }
+}
 
 // 初始化 3D 場景
 function initThreeScene() {
@@ -16,11 +46,11 @@ function initThreeScene() {
   // 創建場景
   scene = new THREE.Scene();
   
-  // 創建攝影機
+  // 創建攝影機 - 優化裁剪面設定防止面分離
   camera = new THREE.PerspectiveCamera(
     45, // 縮小視角 (FOV)，類似長焦鏡頭，放大主體
     window.innerWidth / window.innerHeight, // 長寬比
-    0.1, // 近裁剪面
+    0.5, // 稍微增加近裁剪面以避免 z-fighting
     1000 // 遠裁剪面
   );
   camera.position.z = 3.5; // 攝影機稍微靠近
@@ -34,12 +64,26 @@ function initThreeScene() {
     precision: "highp", // 高精度
     stencil: false,
     depth: true,
-    logarithmicDepthBuffer: false
+    logarithmicDepthBuffer: false,
+    preserveDrawingBuffer: false // 優化性能
   });
   renderer.setSize(window.innerWidth, window.innerHeight);
   // 對於超高品質文字，使用完整的設備像素比
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 3)); 
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // 降低以防止問題
   renderer.outputEncoding = THREE.sRGBEncoding;
+  
+  // 防止面分離的重要設定
+  renderer.sortObjects = true; // 確保物件正確排序
+  renderer.autoClear = true;
+  
+  // 新增：深度緩衝優化，防止 z-fighting 和面分離
+  renderer.shadowMap.enabled = false; // 禁用陰影以提升性能
+  renderer.physicallyCorrectLights = false;
+  
+  // 優化深度測試設定
+  if (renderer.capabilities.floatVertexTextures) {
+    renderer.precision = 'highp';
+  }
   
   // 啟用更好的材質過濾
   renderer.capabilities.getMaxAnisotropy && 
@@ -69,8 +113,9 @@ function initThreeScene() {
     // 將 CSS3D 渲染器添加到 overlay
     const overlay = document.getElementById('overlay');
     overlay.appendChild(cssRenderer.domElement);
+    console.log('CSS3DRenderer loaded successfully');
   } else {
-    console.warn('CSS3DRenderer not available, falling back to WebGL only');
+    console.info('CSS3DRenderer not available, using enhanced WebGL-only mode');
     cssScene = null;
     cssRenderer = null;
   }
@@ -84,15 +129,15 @@ function initThreeScene() {
   scene.add(directionalLight);
 }
 
-// 創建超高品質文字材質的函數 (SDF-like approach)
-function createUltraTextTexture(text, fontSize = 48, textColor = '#ffffff', bgColor = '#2ECC71') {
+// 創建超高品質文字材質的函數 (SDF-like approach) - moda 黑白黃主題
+function createUltraTextTexture(text, fontSize = 48, textColor = '#1a1a1a', bgColor = '#FFD700') {
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
   
-  // 極高解析度：4K 材質用於最高品質
-  const superRes = 4; // 超採樣倍數
-  const baseWidth = 2048;
-  const baseHeight = 1024;
+  // 優化解析度：平衡品質與性能
+  const superRes = 3; // 降低超採樣倍數提升性能
+  const baseWidth = 1024; // 降低基礎解析度
+  const baseHeight = 512;
   canvas.width = baseWidth * superRes;
   canvas.height = baseHeight * superRes;
   
@@ -115,9 +160,14 @@ function createUltraTextTexture(text, fontSize = 48, textColor = '#ffffff', bgCo
   context.textAlign = 'center';
   context.textBaseline = 'middle';
   
-  // 添加文字描邊以增強清晰度
-  context.strokeStyle = 'rgba(0, 0, 0, 0.1)';
-  context.lineWidth = 2 * superRes;
+  // 添加外描邊以增強清晰度 - moda 主題
+  context.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+  context.lineWidth = 3 * superRes;
+  context.strokeText(text, canvas.width / 2, canvas.height / 2);
+  
+  // 添加細微內描邊
+  context.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+  context.lineWidth = 1 * superRes;
   context.strokeText(text, canvas.width / 2, canvas.height / 2);
   
   // 繪製主文字
@@ -161,7 +211,7 @@ function createCSSCard(winnerName) {
     <div class="card-front">
       <div class="card-content">
         <div class="card-text">${winnerName}</div>
-        <div class="card-decoration">🏆</div>
+        <div class="card-decoration">moda</div>
       </div>
     </div>
     <div class="card-back">
@@ -183,29 +233,27 @@ function createCSSCard(winnerName) {
   cardElement.style.borderRadius = '16px';
   cardElement.style.overflow = 'hidden';
   
-  // 正面樣式
+  // 正面樣式 - moda 黃色主題
   const cardFront = cardElement.querySelector('.card-front');
   cardFront.style.position = 'absolute';
   cardFront.style.width = '100%';
   cardFront.style.height = '100%';
-  cardFront.style.background = isDarkMode ? 
-    'linear-gradient(135deg, #00d260, #00b851)' : 
-    'linear-gradient(135deg, #2ECC71, #27AE60)';
+  cardFront.style.background = 'linear-gradient(135deg, #FFD700, #FFA500)';
   cardFront.style.borderRadius = '16px';
-  cardFront.style.boxShadow = '0 15px 35px rgba(0,0,0,0.3)';
+  cardFront.style.boxShadow = '0 15px 35px rgba(255,215,0,0.4)';
   cardFront.style.display = 'flex';
   cardFront.style.alignItems = 'center';
   cardFront.style.justifyContent = 'center';
   cardFront.style.backfaceVisibility = 'hidden';
-  cardFront.style.border = '3px solid rgba(255,255,255,0.3)';
+  cardFront.style.border = '3px solid rgba(255,255,255,0.6)';
   
-  // 背面樣式
+  // 背面樣式 - moda 黑白主題
   const cardBack = cardElement.querySelector('.card-back');
   cardBack.style.position = 'absolute';
   cardBack.style.width = '100%';
   cardBack.style.height = '100%';
   cardBack.style.background = isDarkMode ?
-    'radial-gradient(circle at center, #161b22 0%, #0d1117 70%, #010409 100%)' :
+    'radial-gradient(circle at center, #1a1a1a 0%, #000000 70%, #000000 100%)' :
     'radial-gradient(circle at center, #ffffff 0%, #f8f9fa 70%, #e9ecef 100%)';
   cardBack.style.borderRadius = '16px';
   cardBack.style.boxShadow = '0 15px 35px rgba(0,0,0,0.3)';
@@ -214,9 +262,7 @@ function createCSSCard(winnerName) {
   cardBack.style.justifyContent = 'center';
   cardBack.style.backfaceVisibility = 'hidden';
   cardBack.style.transform = 'rotateY(180deg)';
-  cardBack.style.border = isDarkMode ?
-    '3px solid rgba(0,210,96,0.4)' :
-    '3px solid rgba(46,204,113,0.3)';
+  cardBack.style.border = '3px solid rgba(255,215,0,0.5)';
   
   // Logo 容器
   const logoContainer = cardElement.querySelector('.logo-container');
@@ -227,41 +273,38 @@ function createCSSCard(winnerName) {
   logoContainer.style.alignItems = 'center';
   logoContainer.style.justifyContent = 'center';
   
-  // Logo 圓形背景
+  // Logo 圓形背景 - 增強 moda 黃色主題
   const logoCircle = cardElement.querySelector('.logo-circle');
   logoCircle.style.position = 'relative';
   logoCircle.style.width = '160px';
   logoCircle.style.height = '160px';
-  logoCircle.style.background = isDarkMode ?
-    'radial-gradient(circle, #00d260 0%, #00b851 100%)' :
-    'radial-gradient(circle, #2ECC71 0%, #27AE60 100%)';
+  logoCircle.style.background = 'radial-gradient(circle, #FFD700 0%, #FFED4E 30%, #FFA500 100%)'; // 更豐富的漸層
   logoCircle.style.borderRadius = '50%';
   logoCircle.style.display = 'flex';
   logoCircle.style.flexDirection = 'column';
   logoCircle.style.alignItems = 'center';
   logoCircle.style.justifyContent = 'center';
-  logoCircle.style.boxShadow = isDarkMode ?
-    '0 8px 25px rgba(0,210,96,0.5), inset 0 2px 10px rgba(255,255,255,0.2)' :
-    '0 8px 25px rgba(46,204,113,0.4), inset 0 2px 10px rgba(255,255,255,0.3)';
-  logoCircle.style.border = '2px solid rgba(255,255,255,0.4)';
+  logoCircle.style.boxShadow = '0 12px 30px rgba(255,215,0,0.7), inset 0 4px 15px rgba(255,255,255,0.4), 0 0 20px rgba(255,215,0,0.3)'; // 更強烈的光暈
+  logoCircle.style.border = '4px solid rgba(255,255,255,0.9)'; // 更明顯的邊框
   
-  // Logo 文字
+  // Logo 文字 - moda 白色字體
   const logoText = cardElement.querySelector('.logo-text');
   logoText.style.color = '#ffffff';
-  logoText.style.fontSize = '28px';
-  logoText.style.fontWeight = 'bold';
+  logoText.style.fontSize = '32px'; // 稍微增大字體
+  logoText.style.fontWeight = '900'; // 更粗的字體
   logoText.style.fontFamily = "'SF Pro Display', 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif";
-  logoText.style.textShadow = '2px 2px 4px rgba(0,0,0,0.3)';
-  logoText.style.letterSpacing = '1px';
+  logoText.style.textShadow = '2px 2px 4px rgba(0,0,0,0.5), 0 0 8px rgba(0,0,0,0.3)'; // 更強烈的陰影
+  logoText.style.letterSpacing = '2px'; // 增加字母間距
   
   // Logo 副標題
   const logoSubtitle = cardElement.querySelector('.logo-subtitle');
-  logoSubtitle.style.color = 'rgba(255,255,255,0.9)';
-  logoSubtitle.style.fontSize = '10px';
+  logoSubtitle.style.color = 'rgba(255,255,255,0.9)'; // 改為白色
+  logoSubtitle.style.fontSize = '12px'; // 稍微增大
   logoSubtitle.style.fontWeight = 'bold';
   logoSubtitle.style.fontFamily = "'SF Pro Display', 'PingFang TC', 'Noto Sans TC', sans-serif";
-  logoSubtitle.style.marginTop = '2px';
-  logoSubtitle.style.letterSpacing = '2px';
+  logoSubtitle.style.marginTop = '4px'; // 增加間距
+  logoSubtitle.style.letterSpacing = '3px'; // 增加字母間距
+  logoSubtitle.style.textShadow = '1px 1px 2px rgba(0,0,0,0.5)'; // 添加陰影
   
   // 正面內容樣式
   const cardContent = cardElement.querySelector('.card-content');
@@ -271,16 +314,21 @@ function createCSSCard(winnerName) {
   cardContent.style.gap = '10px';
   
   const cardText = cardElement.querySelector('.card-text');
-  cardText.style.color = 'white';
+  cardText.style.color = '#1a1a1a';
   cardText.style.fontSize = '32px';
   cardText.style.fontWeight = 'bold';
   cardText.style.fontFamily = "'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif";
-  cardText.style.textShadow = '2px 2px 4px rgba(0,0,0,0.3)';
+  cardText.style.textShadow = '1px 1px 2px rgba(255,255,255,0.5)';
   cardText.style.letterSpacing = '1px';
   
   const cardDecoration = cardElement.querySelector('.card-decoration');
-  cardDecoration.style.fontSize = '24px';
-  cardDecoration.style.opacity = '0.8';
+  cardDecoration.style.fontSize = '28px'; // 增大字體
+  cardDecoration.style.fontWeight = '900'; // 更粗字體
+  cardDecoration.style.color = '#ffffff'; // 白色文字
+  cardDecoration.style.textShadow = '2px 2px 4px rgba(0,0,0,0.7), 0 0 12px rgba(255,215,0,0.5)'; // 強烈陰影 + 金色光暈
+  cardDecoration.style.letterSpacing = '3px'; // 增加字母間距
+  cardDecoration.style.opacity = '0.95'; // 稍微提高不透明度
+  cardDecoration.style.fontFamily = "'SF Pro Display', 'PingFang TC', 'Noto Sans TC', 'Microsoft JhengHei', sans-serif";
   
   // 創建 CSS3D 物件
   const cssObject = new THREE.CSS3DObject(cardElement);
@@ -458,53 +506,134 @@ function createLogoTexture() {
   texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.magFilter = THREE.LinearFilter;
   texture.format = THREE.RGBAFormat;
-  return new THREE.MeshBasicMaterial({ map: texture });
+  texture.flipY = false; // 避免上下翻轉
+  
+  return new THREE.MeshBasicMaterial({ 
+    map: texture,
+    transparent: true,
+    alphaTest: 0.1,
+    side: THREE.FrontSide
+  });
 }
 
-// 創建 3D 卡牌的工廠函式
+// 創建 3D 卡牌的工廠函式 - 性能優化版本
 function createWinnerCard(winnerName) {
-  // 進一步放大尺寸以獲得最大清晰度
-  const cardWidth = 2.5;
-  const cardHeight = 1.5; // 按比例放大
-  const cardDepth = 0.05;
+  // 優化尺寸：在品質和性能間平衡，增加厚度防止面分離
+  const cardWidth = 2.0; // 稍微縮小以提升性能
+  const cardHeight = 1.2;
+  const cardDepth = 0.08; // 增加厚度以避免 z-fighting 和面分離
+  
+  // 修正：使用最簡單的幾何體設定，避免面分離
   const geometry = new THREE.BoxGeometry(cardWidth, cardHeight, cardDepth);
   
-  // 創建 6 面材質陣列
+  // 確保幾何體是一個整體，防止面分離
+  geometry.computeBoundingBox();
+  geometry.computeBoundingSphere();
+  
+  // 新增：確保頂點完整性以防止面分離
+  geometry.computeVertexNormals();
+  geometry.normalizeNormals();
+  
+  // 修正材質映射：確保材質正確對應到各個面
+  const sideMaterial = new THREE.MeshBasicMaterial({ 
+    color: 0xFFD700,
+    transparent: false,
+    side: THREE.FrontSide
+  }); // moda 黃色側面
+  
+  // 正確創建正面和背面材質
+  const frontMaterial = createUltraTextTexture(winnerName, 60, '#1a1a1a', '#FFD700');
+  let backMaterial;
+  
+  // 安全獲取背面材質
+  try {
+    backMaterial = preloadedTextures.logoMaterial || createLogoTexture();
+  } catch (error) {
+    console.warn('Failed to create logo material, using fallback:', error);
+    backMaterial = new THREE.MeshBasicMaterial({ color: 0x1a1a1a }); // 黑色後備
+  }
+  
+  // 驗證材質創建成功
+  if (!frontMaterial || !backMaterial) {
+    console.error('Material creation failed for card:', winnerName);
+    return null;
+  }
+  
+  // THREE.js BoxGeometry 標準面順序映射
   const materials = [
-    // 右側面 (索引 0)
-    new THREE.MeshBasicMaterial({ color: 0x333333 }),
-    // 左側面 (索引 1)  
-    new THREE.MeshBasicMaterial({ color: 0x333333 }),
-    // 上側面 (索引 2)
-    new THREE.MeshBasicMaterial({ color: 0x333333 }),
-    // 下側面 (索引 3)
-    new THREE.MeshBasicMaterial({ color: 0x333333 }),
-    // 正面 - 得獎者姓名 (索引 4) - 使用超高品質文字渲染
-    createUltraTextTexture(winnerName, 72, '#ffffff', '#2ECC71'),
-    // 背面 - Logo (索引 5)
-    createLogoTexture()
+    sideMaterial,   // 0: 右面 (+X)
+    sideMaterial,   // 1: 左面 (-X) 
+    sideMaterial,   // 2: 上面 (+Y)
+    sideMaterial,   // 3: 下面 (-Y)
+    frontMaterial,  // 4: 前面 (+Z) - 文字面
+    backMaterial    // 5: 後面 (-Z) - Logo 面
   ];
+  
+  console.log(`Created materials for card: ${winnerName}`, {
+    frontMaterial: frontMaterial.map ? 'with texture' : 'basic material',
+    backMaterial: backMaterial.map ? 'with texture' : 'basic material'
+  });
+  
+  // 驗證所有材質都正確創建
+  const invalidMaterials = materials.filter(mat => !mat || typeof mat.dispose !== 'function');
+  if (invalidMaterials.length > 0) {
+    console.error('Invalid materials detected:', invalidMaterials);
+    return null;
+  }
   
   // 創建網格
   const card = new THREE.Mesh(geometry, materials);
   
+  // 確保卡片正確初始化
+  if (!card) {
+    console.error('Failed to create card mesh for:', winnerName);
+    return null;
+  }
+  
+  // 設置卡片屬性以提升渲染品質和防止面分離
+  card.castShadow = false; // 優化性能
+  card.receiveShadow = false;
+  card.frustumCulled = true; // 啟用視錐體剔除
+  
+  // 新增：設置渲染順序防止面分離
+  card.renderOrder = 1; // 確保卡片在正確的渲染順序
+  card.matrixAutoUpdate = true; // 確保矩陣自動更新
+  
   return card;
 }
 
-// 動畫循環
+// 動畫循環 (簡化版)
+// 全域變數存儲爆炸粒子和時間
+let explosionParticles = [];
+let lastTime = performance.now();
+
 function animate() {
+  // 這個 ID 會在 stopAnimation 被清除，所以這是循環的條件
   animationId = requestAnimationFrame(animate);
-  
+
+  // 計算 deltaTime
+  const currentTime = performance.now();
+  const deltaTime = (currentTime - lastTime) / 1000; // 轉換為秒
+  lastTime = currentTime;
+
   // 如果有動畫庫（TWEEN.js），更新補間動畫
   if (typeof TWEEN !== 'undefined') {
     TWEEN.update();
   }
   
+  // 更新螢幕震動效果
+  updateCameraShake(deltaTime);
+  
+  // 更新爆炸粒子動畫
+  if (explosionParticles.length > 0) {
+    updateExplosionParticles(explosionParticles, deltaTime);
+  }
+
   // 渲染 WebGL 場景（背景和效果）
   if (renderer && scene && camera) {
     renderer.render(scene, camera);
   }
-  
+
   // 渲染 CSS3D 場景（清晰文字）
   if (cssRenderer && cssScene && camera) {
     cssRenderer.render(cssScene, camera);
@@ -521,8 +650,7 @@ function stopAnimation() {
 
 // 清理 3D 場景
 function cleanupThreeScene() {
-  // 停止動畫
-  stopAnimation();
+  // stopAnimation(); // 移到 showCardShowerAnimation 的結尾處呼叫，避免重複
   
   // 清理卡牌
   cards.forEach(card => {
@@ -631,182 +759,972 @@ function calculateGridLayout(cardCount) {
   return { positions, scale };
 }
 
-// 同步 WebGL 和 CSS3D 卡牌動畫 (V2 - 加入 gridScale)
-function animateCardPair(webglCard, cssCard, finalPosition, gridScale, delay = 0) {
+// 生成分散的飛舞位置，避免穿模
+function generateScatteredPositions(count) {
+  const positions = [];
+  const minDistance = 3.0; // 最小距離防止穿模
+  
+  // 獲取攝影機視野範圍
+  const fovInRadians = (camera.fov * Math.PI) / 180;
+  const visibleHeight = 2 * Math.tan(fovInRadians / 2) * camera.position.z;
+  const visibleWidth = visibleHeight * camera.aspect;
+  
+  // 根據卡片數量調整分佈策略
+  if (count <= 3) {
+    // 少量卡片：使用預定義的分散位置
+    const presetPositions = [
+      { x: -visibleWidth * 0.3, y: visibleHeight * 0.2, z: 2 },
+      { x: visibleWidth * 0.3, y: -visibleHeight * 0.2, z: 1.5 },
+      { x: 0, y: visibleHeight * 0.4, z: 2.5 }
+    ];
+    return presetPositions.slice(0, count);
+  } else {
+    // 多張卡片：使用圓形分佈避免聚集
+    const radius = Math.max(visibleWidth, visibleHeight) * 0.4;
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2;
+      const r = radius * (0.7 + Math.random() * 0.6); // 隨機半徑
+      const x = Math.cos(angle) * r;
+      const y = Math.sin(angle) * r;
+      const z = 1 + Math.random() * 2;
+      positions.push({ x, y, z });
+    }
+    return positions;
+  }
+}
+
+// === 新增：爆炸粒子系統 ===
+
+// 創建多種爆炸粒子類型
+function createExplosionParticles(position, count = 20) {
+  const particles = [];
+  
+  for (let i = 0; i < count; i++) {
+    const particleType = Math.random();
+    let particle;
+    
+    if (particleType < 0.4) {
+      // 40% 星星粒子
+      particle = createStarParticle();
+    } else if (particleType < 0.7) {
+      // 30% 火花粒子
+      particle = createSparkParticle();
+    } else {
+      // 30% 碎片粒子
+      particle = createDebrisParticle();
+    }
+    
+    // 設置爆炸的隨機方向和速度
+    const angle = Math.random() * Math.PI * 2;
+    const elevation = (Math.random() - 0.5) * Math.PI;
+    const speed = 2 + Math.random() * 4; // 增加爆炸速度
+    
+    const velocity = {
+      x: Math.cos(angle) * Math.cos(elevation) * speed,
+      y: Math.sin(elevation) * speed,
+      z: Math.sin(angle) * Math.cos(elevation) * speed
+    };
+    
+    particle.position.copy(position);
+    particle.userData = { velocity, life: 1.0, maxLife: 1.0 + Math.random() * 0.5 };
+    particles.push(particle);
+    scene.add(particle);
+  }
+  
+  return particles;
+}
+
+// 星星形狀粒子
+function createStarParticle() {
+  const starShape = new THREE.Shape();
+  const outerRadius = 0.04;
+  const innerRadius = 0.02;
+  const spikes = 5;
+  
+  for (let i = 0; i < spikes * 2; i++) {
+    const angle = (i / (spikes * 2)) * Math.PI * 2;
+    const radius = i % 2 === 0 ? outerRadius : innerRadius;
+    const x = Math.cos(angle) * radius;
+    const y = Math.sin(angle) * radius;
+    
+    if (i === 0) starShape.moveTo(x, y);
+    else starShape.lineTo(x, y);
+  }
+  starShape.closePath();
+  
+  const geometry = new THREE.ShapeGeometry(starShape);
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xFFD700,
+    transparent: true,
+    opacity: 0.9,
+    side: THREE.DoubleSide
+  });
+  
+  return new THREE.Mesh(geometry, material);
+}
+
+// 火花粒子
+function createSparkParticle() {
+  const geometry = new THREE.ConeGeometry(0.01, 0.08, 4);
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xFF6B35, // 橙紅色火花
+    transparent: true,
+    opacity: 0.8,
+    emissive: 0xFF4500,
+    emissiveIntensity: 0.6
+  });
+  
+  return new THREE.Mesh(geometry, material);
+}
+
+// 碎片粒子
+function createDebrisParticle() {
+  const geometry = new THREE.BoxGeometry(
+    0.02 + Math.random() * 0.02,
+    0.02 + Math.random() * 0.02,
+    0.02 + Math.random() * 0.02
+  );
+  
+  const colors = [0xFFD700, 0xFF6B35, 0xFF1493, 0x00CED1, 0x32CD32];
+  const color = colors[Math.floor(Math.random() * colors.length)];
+  
+  const material = new THREE.MeshBasicMaterial({
+    color: color,
+    transparent: true,
+    opacity: 0.7
+  });
+  
+  return new THREE.Mesh(geometry, material);
+}
+
+// 更新爆炸粒子動畫
+function updateExplosionParticles(particles, deltaTime = 0.016) {
+  particles.forEach((particle, index) => {
+    if (!particle.userData) return;
+    
+    const { velocity, life, maxLife } = particle.userData;
+    
+    // 更新位置
+    particle.position.x += velocity.x * deltaTime;
+    particle.position.y += velocity.y * deltaTime;
+    particle.position.z += velocity.z * deltaTime;
+    
+    // 模擬重力
+    velocity.y -= 9.8 * deltaTime;
+    
+    // 阻力效果
+    velocity.x *= 0.98;
+    velocity.z *= 0.98;
+    
+    // 旋轉效果
+    particle.rotation.x += velocity.x * deltaTime * 2;
+    particle.rotation.y += velocity.y * deltaTime * 2;
+    particle.rotation.z += velocity.z * deltaTime * 2;
+    
+    // 生命週期
+    particle.userData.life -= deltaTime;
+    const lifeRatio = particle.userData.life / maxLife;
+    
+    // 淡出效果
+    particle.material.opacity = Math.max(0, lifeRatio * 0.8);
+    particle.scale.setScalar(Math.max(0.1, lifeRatio));
+    
+    // 移除死亡粒子
+    if (particle.userData.life <= 0) {
+      scene.remove(particle);
+      particle.geometry.dispose();
+      particle.material.dispose();
+      particles.splice(index, 1);
+    }
+  });
+}
+
+// === 螢幕震動效果系統 ===
+
+// 震動狀態管理
+let cameraShake = {
+  intensity: 0,
+  duration: 0,
+  originalPosition: new THREE.Vector3(),
+  isShaking: false
+};
+
+// 觸發螢幕震動
+function triggerCameraShake(intensity = 0.1, duration = 0.5) {
+  if (camera && !cameraShake.isShaking) {
+    cameraShake.originalPosition.copy(camera.position);
+  }
+  
+  cameraShake.intensity = Math.max(cameraShake.intensity, intensity);
+  cameraShake.duration = Math.max(cameraShake.duration, duration);
+  cameraShake.isShaking = true;
+}
+
+// 更新螢幕震動效果
+function updateCameraShake(deltaTime) {
+  if (!cameraShake.isShaking || !camera) return;
+  
+  if (cameraShake.duration <= 0) {
+    // 震動結束，恢復原始位置
+    camera.position.copy(cameraShake.originalPosition);
+    cameraShake.isShaking = false;
+    cameraShake.intensity = 0;
+    return;
+  }
+  
+  // 計算當前震動強度（隨時間衰減）
+  const currentIntensity = cameraShake.intensity * (cameraShake.duration / 0.5);
+  
+  // 隨機震動偏移
+  const shakeX = (Math.random() - 0.5) * currentIntensity;
+  const shakeY = (Math.random() - 0.5) * currentIntensity;
+  const shakeZ = (Math.random() - 0.5) * currentIntensity * 0.3; // Z軸震動較小
+  
+  // 應用震動到攝影機
+  camera.position.x = cameraShake.originalPosition.x + shakeX;
+  camera.position.y = cameraShake.originalPosition.y + shakeY;
+  camera.position.z = cameraShake.originalPosition.z + shakeZ;
+  
+  // 衰減震動
+  cameraShake.duration -= deltaTime;
+}
+
+// 大爆炸震動效果
+function triggerMegaExplosion(position) {
+  // 創建更多爆炸粒子
+  const mainExplosion = createExplosionParticles(position, 40);
+  
+  // 觸發背景閃光
+  triggerScreenFlash();
+  
+  // 創建衝擊波
+  createShockwave(position);
+  
+  // 延遲第二波爆炸
+  setTimeout(() => {
+    const secondWave = createExplosionParticles(position, 25);
+    triggerCameraShake(0.08, 0.3);
+    createShockwave(position, 0.5, 0.3);
+  }, 100);
+  
+  // 延遲第三波小爆炸
+  setTimeout(() => {
+    const thirdWave = createExplosionParticles(position, 15);
+    triggerCameraShake(0.05, 0.2);
+  }, 200);
+  
+  // 主要震動效果
+  triggerCameraShake(0.15, 0.8);
+  
+  return mainExplosion;
+}
+
+// === 背景爆炸效果系統 ===
+
+// 螢幕閃光效果
+function triggerScreenFlash(intensity = 0.8, duration = 0.15) {
+  // 創建閃光覆蓋層
+  const flash = document.createElement('div');
+  flash.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: radial-gradient(circle, rgba(255,255,255,${intensity}) 0%, rgba(255,215,0,${intensity * 0.5}) 100%);
+    pointer-events: none;
+    z-index: 9998;
+    animation: flashOut ${duration}s ease-out forwards;
+  `;
+  
+  // 添加閃光動畫 CSS
+  if (!document.getElementById('flash-styles')) {
+    const style = document.createElement('style');
+    style.id = 'flash-styles';
+    style.textContent = `
+      @keyframes flashOut {
+        0% { opacity: 1; }
+        100% { opacity: 0; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+  
+  document.body.appendChild(flash);
+  
+  // 移除閃光元素
+  setTimeout(() => {
+    if (flash.parentNode) {
+      flash.parentNode.removeChild(flash);
+    }
+  }, duration * 1000 + 50);
+}
+
+// 創建衝擊波效果
+function createShockwave(position, maxRadius = 1.5, duration = 0.6) {
+  const shockwaveGeometry = new THREE.RingGeometry(0, 0.1, 32, 1);
+  const shockwaveMaterial = new THREE.MeshBasicMaterial({
+    color: 0xFFD700,
+    transparent: true,
+    opacity: 0.8,
+    side: THREE.DoubleSide
+  });
+  
+  const shockwave = new THREE.Mesh(shockwaveGeometry, shockwaveMaterial);
+  shockwave.position.copy(position);
+  
+  // 隨機旋轉
+  shockwave.rotation.x = Math.random() * Math.PI;
+  shockwave.rotation.y = Math.random() * Math.PI;
+  
+  scene.add(shockwave);
+  
+  // 衝擊波擴散動畫
+  new TWEEN.Tween(shockwave.scale)
+    .to({ x: maxRadius * 10, y: maxRadius * 10, z: 1 }, duration * 1000)
+    .easing(TWEEN.Easing.Cubic.Out)
+    .start();
+  
+  // 衝擊波淡出
+  new TWEEN.Tween(shockwaveMaterial)
+    .to({ opacity: 0 }, duration * 1000)
+    .easing(TWEEN.Easing.Cubic.Out)
+    .onComplete(() => {
+      scene.remove(shockwave);
+      shockwaveGeometry.dispose();
+      shockwaveMaterial.dispose();
+    })
+    .start();
+  
+  return shockwave;
+}
+
+// 創建放射狀背景動畫
+function createRadialBurst(position, count = 12) {
+  const bursts = [];
+  
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * Math.PI * 2;
+    const burstGeometry = new THREE.PlaneGeometry(0.1, 0.8);
+    const burstMaterial = new THREE.MeshBasicMaterial({
+      color: 0xFFD700,
+      transparent: true,
+      opacity: 0.6
+    });
+    
+    const burst = new THREE.Mesh(burstGeometry, burstMaterial);
+    burst.position.copy(position);
+    burst.rotation.z = angle;
+    
+    scene.add(burst);
+    bursts.push(burst);
+    
+    // 放射動畫
+    new TWEEN.Tween(burst.scale)
+      .to({ x: 2, y: 5, z: 1 }, 400)
+      .easing(TWEEN.Easing.Cubic.Out)
+      .start();
+    
+    // 淡出動畫
+    new TWEEN.Tween(burstMaterial)
+      .to({ opacity: 0 }, 600)
+      .easing(TWEEN.Easing.Cubic.Out)
+      .onComplete(() => {
+        scene.remove(burst);
+        burstGeometry.dispose();
+        burstMaterial.dispose();
+      })
+      .start();
+  }
+  
+  return bursts;
+}
+
+// 彩虹色爆炸效果
+function createColorBurst(position, colors = [0xFF1493, 0x00CED1, 0x32CD32, 0xFF6B35, 0x9370DB]) {
+  const colorParticles = [];
+  
+  colors.forEach((color, index) => {
+    for (let i = 0; i < 8; i++) {
+      const particleGeometry = new THREE.SphereGeometry(0.02, 8, 8);
+      const particleMaterial = new THREE.MeshBasicMaterial({
+        color: color,
+        transparent: true,
+        opacity: 0.8,
+        emissive: color,
+        emissiveIntensity: 0.3
+      });
+      
+      const particle = new THREE.Mesh(particleGeometry, particleMaterial);
+      particle.position.copy(position);
+      
+      const angle = (index * 8 + i) * (Math.PI * 2) / (colors.length * 8);
+      const speed = 1.5 + Math.random() * 1;
+      
+      scene.add(particle);
+      colorParticles.push(particle);
+      
+      // 彩色粒子擴散
+      new TWEEN.Tween(particle.position)
+        .to({
+          x: position.x + Math.cos(angle) * speed,
+          y: position.y + Math.sin(angle) * speed * 0.5,
+          z: position.z + (Math.random() - 0.5) * speed
+        }, 800)
+        .easing(TWEEN.Easing.Cubic.Out)
+        .start();
+      
+      // 粒子旋轉
+      new TWEEN.Tween(particle.rotation)
+        .to({
+          x: Math.random() * Math.PI * 2,
+          y: Math.random() * Math.PI * 2,
+          z: Math.random() * Math.PI * 2
+        }, 800)
+        .easing(TWEEN.Easing.Cubic.Out)
+        .start();
+      
+      // 粒子淡出
+      new TWEEN.Tween(particleMaterial)
+        .to({ opacity: 0 }, 800)
+        .easing(TWEEN.Easing.Cubic.Out)
+        .onComplete(() => {
+          scene.remove(particle);
+          particleGeometry.dispose();
+          particleMaterial.dispose();
+        })
+        .start();
+    }
+  });
+  
+  return colorParticles;
+}
+
+// === 原有光點粒子系統 ===
+
+// 創建金色光點粒子 - 增強視覺效果
+function createSparkleParticle() {
+  const geometry = new THREE.SphereGeometry(0.03, 12, 12); // 稍大的球體，更高品質
+  
+  // moda 黃金色光點材質 - 增強發光效果
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xFFD700,
+    transparent: true,
+    opacity: 0.95,
+    emissive: 0xFFAA00, // 發光效果
+    emissiveIntensity: 0.5 // 增強發光強度
+  });
+  
+  const particle = new THREE.Mesh(geometry, material);
+  particle.scale.set(0, 0, 0); // 初始不可見
+  
+  // 添加光暈效果
+  const glowGeometry = new THREE.SphereGeometry(0.06, 8, 8);
+  const glowMaterial = new THREE.MeshBasicMaterial({
+    color: 0xFFD700,
+    transparent: true,
+    opacity: 0.2,
+    side: THREE.BackSide
+  });
+  const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+  particle.add(glow);
+  
+  return particle;
+}
+
+// 創建光點軌跡效果
+function createSparkleTrail(particle) {
+  const trailGeometry = new THREE.BufferGeometry();
+  const trailPositions = new Float32Array(30); // 10個點，每個3個座標
+  trailGeometry.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+  
+  const trailMaterial = new THREE.LineBasicMaterial({
+    color: 0xFFD700,
+    transparent: true,
+    opacity: 0.6,
+    linewidth: 2
+  });
+  
+  const trail = new THREE.Line(trailGeometry, trailMaterial);
+  trail.visible = false;
+  
+  return trail;
+}
+
+// 光點噴飛到卡片轉換動畫 - 增強爆炸效果
+function animateSparkleToCard(webglCard, cssCard, finalPosition, gridScale, delay = 0, scatterPosition) {
   return new Promise((resolve) => {
-    // 階段1：起始狀態 (都在中心後方)
-    webglCard.position.set(0, 0, -2);
-    webglCard.rotation.set(0, Math.PI, 0); // 背面朝前
-    webglCard.scale.set(0.1, 0.1, 0.1); // 很小
+    // 創建光點粒子
+    const sparkle = createSparkleParticle();
+    const trail = createSparkleTrail(sparkle);
+    scene.add(sparkle);
+    scene.add(trail);
+    
+    // 初始位置設在中心，添加隨機偏移增加自然感
+    const initialOffset = {
+      x: (Math.random() - 0.5) * 0.2,
+      y: (Math.random() - 0.5) * 0.2,
+      z: 0
+    };
+    sparkle.position.set(initialOffset.x, initialOffset.y, initialOffset.z);
+    
+    setTimeout(() => {
+      // === 超級爆炸啟動序列 ===
+      
+      // 1. 觸發初始大爆炸
+      const initialExplosion = triggerMegaExplosion(sparkle.position);
+      explosionParticles.push(...initialExplosion);
+      
+      // 2. 創建放射狀背景效果
+      createRadialBurst(sparkle.position, 16);
+      
+      // 3. 創建彩虹色爆炸
+      createColorBurst(sparkle.position);
+      
+      // 階段1：光點爆發式噴出 - 添加重力效果
+      sparkle.scale.set(1, 1, 1);
+      trail.visible = true;
+      
+      // 計算拋物線軌跡的控制點（模擬重力）
+      const midPoint = {
+        x: (initialOffset.x + scatterPosition.x) / 2 + (Math.random() - 0.5) * 1.0,
+        y: (initialOffset.y + scatterPosition.y) / 2 + Math.abs(scatterPosition.x) * 0.3, // 上拋效果
+        z: (initialOffset.z + scatterPosition.z) / 2
+      };
+      
+      // 分兩段動畫模擬拋物線
+      // 第一段：上升階段
+      new TWEEN.Tween(sparkle.position)
+        .to(midPoint, 250)
+        .easing(TWEEN.Easing.Cubic.Out)
+        .onUpdate(() => updateSparkleTrail(trail, sparkle.position))
+        .onComplete(() => {
+          // 第二段：下降階段（受重力影響）
+          new TWEEN.Tween(sparkle.position)
+            .to(scatterPosition, 300)
+            .easing(TWEEN.Easing.Cubic.In) // 加速下降
+            .onUpdate(() => updateSparkleTrail(trail, sparkle.position))
+            .onComplete(() => {
+              // 階段2：短暫彈跳效果
+              const bounceHeight = 0.1;
+              new TWEEN.Tween(sparkle.position)
+                .to({ 
+                  x: scatterPosition.x, 
+                  y: scatterPosition.y + bounceHeight, 
+                  z: scatterPosition.z 
+                }, 150)
+                .easing(TWEEN.Easing.Bounce.Out)
+                .onUpdate(() => updateSparkleTrail(trail, sparkle.position))
+                .onComplete(() => {
+                  // 回到散射位置
+                  new TWEEN.Tween(sparkle.position)
+                    .to(scatterPosition, 100)
+                    .easing(TWEEN.Easing.Cubic.Out)
+                    .onComplete(() => {
+                      // 階段3：飛回最終位置並轉換
+                      setTimeout(() => {
+                        new TWEEN.Tween(sparkle.position)
+                          .to(finalPosition, 500)
+                          .easing(TWEEN.Easing.Back.InOut)
+                          .onUpdate(() => updateSparkleTrail(trail, sparkle.position))
+                          .onComplete(() => {
+                            // === 最終爆炸與卡片顯現 ===
+                            
+                            // 1. 小型爆炸標記光點到達
+                            const finalExplosion = createExplosionParticles(finalPosition, 15);
+                            explosionParticles.push(...finalExplosion);
+                            
+                            // 2. 小型震動效果
+                            triggerCameraShake(0.06, 0.3);
+                            
+                            // 3. 小型衝擊波
+                            createShockwave(finalPosition, 0.8, 0.4);
+                            
+                            // 4. 螢幕閃光（較輕微）
+                            triggerScreenFlash(0.4, 0.1);
+                            
+                            // 光點消失，卡片顯現
+                            fadeOutSparkle(sparkle, trail);
+                            revealCard(webglCard, cssCard, finalPosition, gridScale, resolve);
+                          })
+                          .start();
+                      }, 80); // 短暫停留
+                    })
+                    .start();
+                })
+                .start();
+            })
+            .start();
+        })
+        .start();
+        
+      // 光點脈動效果
+      new TWEEN.Tween(sparkle.scale)
+        .to({ x: 1.2, y: 1.2, z: 1.2 }, 300)
+        .easing(TWEEN.Easing.Sinusoidal.InOut)
+        .repeat(Infinity)
+        .yoyo(true)
+        .start();
+        
+      // 光點閃爍效果
+      new TWEEN.Tween(sparkle.material)
+        .to({ opacity: 0.6 }, 250)
+        .easing(TWEEN.Easing.Sinusoidal.InOut)
+        .repeat(Infinity)
+        .yoyo(true)
+        .start();
+        
+    }, delay);
+  });
+}
+
+// 更新光點軌跡
+function updateSparkleTrail(trail, currentPosition) {
+  const positions = trail.geometry.attributes.position.array;
+  
+  // 向前移動所有點
+  for (let i = positions.length - 3; i >= 3; i -= 3) {
+    positions[i] = positions[i - 3];
+    positions[i + 1] = positions[i - 2];
+    positions[i + 2] = positions[i - 1];
+  }
+  
+  // 設置新的頭部位置
+  positions[0] = currentPosition.x;
+  positions[1] = currentPosition.y;
+  positions[2] = currentPosition.z;
+  
+  trail.geometry.attributes.position.needsUpdate = true;
+}
+
+// 光點淡出效果
+function fadeOutSparkle(sparkle, trail) {
+  new TWEEN.Tween(sparkle.scale)
+    .to({ x: 0, y: 0, z: 0 }, 200)
+    .onComplete(() => {
+      scene.remove(sparkle);
+      scene.remove(trail);
+      sparkle.geometry.dispose();
+      sparkle.material.dispose();
+      trail.geometry.dispose();
+      trail.material.dispose();
+    })
+    .start();
+}
+
+// 卡片顯現動畫 - 增強版
+function revealCard(webglCard, cssCard, finalPosition, gridScale, resolve) {
+  // 設置卡片初始狀態
+  webglCard.position.copy(finalPosition);
+  webglCard.rotation.set(0, 0, 0);
+  webglCard.scale.set(0.05, 0.05, 0.05); // 更小的起始尺寸
+  
+  // CSS3D 卡片同步
+  if (cssCard) {
+    cssCard.position.copy(webglCard.position);
+    cssCard.rotation.copy(webglCard.rotation);
+    cssCard.scale.set(0.0003, 0.0003, 0.0003);
+  }
+  
+  scene.add(webglCard);
+  if (cssCard) cssScene.add(cssCard);
+  
+  // 多階段卡片顯現動畫
+  // 階段1：快速放大到稍微過大
+  new TWEEN.Tween(webglCard.scale)
+    .to({ x: gridScale * 1.2, y: gridScale * 1.2, z: gridScale * 1.2 }, 200)
+    .easing(TWEEN.Easing.Cubic.Out)
+    .onUpdate(() => {
+      if (cssCard) {
+        const s = webglCard.scale.x * 0.006;
+        cssCard.scale.set(s, s, s);
+      }
+    })
+    .onComplete(() => {
+      // 階段2：回彈到正確大小
+      new TWEEN.Tween(webglCard.scale)
+        .to({ x: gridScale, y: gridScale, z: gridScale }, 150)
+        .easing(TWEEN.Easing.Back.Out)
+        .onUpdate(() => {
+          if (cssCard) {
+            const s = webglCard.scale.x * 0.006;
+            cssCard.scale.set(s, s, s);
+          }
+        })
+        .onComplete(() => {
+          // 階段3：輕微脈動效果
+          addCardPulseEffect(webglCard, cssCard, gridScale);
+          resolve();
+        })
+        .start();
+    })
+    .start();
+}
+
+// 添加卡片脈動效果
+function addCardPulseEffect(webglCard, cssCard, gridScale) {
+  // 輕微的脈動動畫
+  new TWEEN.Tween(webglCard.scale)
+    .to({ 
+      x: gridScale * 1.05, 
+      y: gridScale * 1.05, 
+      z: gridScale * 1.05 
+    }, 800)
+    .easing(TWEEN.Easing.Sinusoidal.InOut)
+    .repeat(2) // 脈動2次
+    .yoyo(true)
+    .onUpdate(() => {
+      if (cssCard) {
+        const s = webglCard.scale.x * 0.006;
+        cssCard.scale.set(s, s, s);
+      }
+    })
+    .start();
+}
+
+// 同步 WebGL 和 CSS3D 卡牌動畫 (V3 - 加入防穿模)
+function animateCardPair(webglCard, cssCard, finalPosition, gridScale, delay = 0, scatterPosition) {
+  return new Promise((resolve) => {
+    // 階段1：起始狀態 - 爆發式起點
+    webglCard.position.set(0, 0, -1); // 更靠近中心，增強爆發感
+    webglCard.rotation.set(0, 0, 0); // 修正：正面朝前 (前面是 +Z 面，索引 4)
+    webglCard.scale.set(0.05, 0.05, 0.05); // 更小的起始尺寸，增強放大效果
     
     // CSS3D 卡片同步（如果存在）
     if (cssCard) {
       cssCard.position.copy(webglCard.position);
       cssCard.rotation.copy(webglCard.rotation);
-      cssCard.scale.set(0.0006, 0.0006, 0.0006); // CSS3D 需要更小的縮放
+      cssCard.scale.set(0.0003, 0.0003, 0.0003); // CSS3D 對應更小的縮放
     }
     
-    // 階段2：飛舞狀態 (隨機散開)
-    const randomX = (Math.random() - 0.5) * 8;
-    const randomY = (Math.random() - 0.5) * 6;
-    const randomZ = Math.random() * 3 + 1;
+    // 階段2：飛舞狀態 - 使用預分配的分散位置避免穿模
+    const { x: randomX, y: randomY, z: randomZ } = scatterPosition;
     
     setTimeout(() => {
-      // WebGL 卡片動畫
+      // 優化：使用單一更新函式減少回調次數
+      const syncCSS = () => {
+        if (cssCard) {
+          cssCard.position.copy(webglCard.position);
+          cssCard.rotation.copy(webglCard.rotation);
+          const s = webglCard.scale.x * 0.006;
+          cssCard.scale.set(s, s, s);
+        }
+      };
+
+      // WebGL 卡片動畫 - 爆發式噴出效果
       new TWEEN.Tween(webglCard.position)
-        .to({ x: randomX, y: randomY, z: randomZ }, 1000)
-        .easing(TWEEN.Easing.Cubic.Out)
-        .onUpdate(() => {
-          if (cssCard) cssCard.position.copy(webglCard.position);
-        })
+        .to({ x: randomX, y: randomY, z: randomZ }, 500) // 大幅縮短到 500ms
+        .easing(TWEEN.Easing.Exponential.Out) // 使用爆發性 easing
+        .onUpdate(syncCSS)
         .start();
         
       new TWEEN.Tween(webglCard.scale)
-        .to({ x: 1, y: 1, z: 1 }, 1000)
-        .easing(TWEEN.Easing.Cubic.Out)
-        .onUpdate(() => {
-          if (cssCard) {
-            cssCard.scale.set(
-              webglCard.scale.x * 0.006, 
-              webglCard.scale.y * 0.006, 
-              webglCard.scale.z * 0.006
-            );
-          }
-        })
+        .to({ x: 1, y: 1, z: 1 }, 500)
+        .easing(TWEEN.Easing.Exponential.Out)
         .start();
         
       new TWEEN.Tween(webglCard.rotation)
-        .to({ x: Math.random() * Math.PI, y: Math.random() * Math.PI, z: Math.random() * Math.PI }, 1000)
-        .easing(TWEEN.Easing.Cubic.Out)
-        .onUpdate(() => {
-          if (cssCard) cssCard.rotation.copy(webglCard.rotation);
-        })
+        .to({ x: Math.random() * Math.PI, y: Math.random() * Math.PI, z: Math.random() * Math.PI }, 500)
+        .easing(TWEEN.Easing.Exponential.Out)
         .onComplete(() => {
-          // 階段3：飛到最終位置並翻轉到正面
+          // 階段3：快速飛到最終位置
           setTimeout(() => {
+            // 快速歸位動畫
             new TWEEN.Tween(webglCard.position)
-              .to(finalPosition, 1500)
-              .easing(TWEEN.Easing.Cubic.InOut)
-              .onUpdate(() => {
-                if (cssCard) cssCard.position.copy(webglCard.position);
-              })
+              .to(finalPosition, 800) // 進一步縮短時間
+              .easing(TWEEN.Easing.Back.InOut) // 使用回彈效果
+              .onUpdate(syncCSS)
               .start();
               
             new TWEEN.Tween(webglCard.rotation)
-              .to({ x: 0, y: 0, z: 0 }, 1500) // 正面朝前
-              .easing(TWEEN.Easing.Cubic.InOut)
-              .onUpdate(() => {
-                if (cssCard) cssCard.rotation.copy(webglCard.rotation);
-              })
-              .start(); // 將 onComplete 移到下面的 scale 動畫中
+              .to({ x: 0, y: 0, z: 0 }, 800) // 正面朝前
+              .easing(TWEEN.Easing.Back.InOut)
+              .start();
               
-            // [修改] 讓卡牌縮放到最終計算出的 gridScale
+            // 讓卡牌縮放到最終計算出的 gridScale
             new TWEEN.Tween(webglCard.scale)
-              .to({ x: gridScale, y: gridScale, z: gridScale }, 1500)
-              .easing(TWEEN.Easing.Cubic.InOut)
-              .onUpdate(() => {
-                if (cssCard) {
-                  const s = webglCard.scale.x * 0.006;
-                  cssCard.scale.set(s, s, s);
-                }
-              })
+              .to({ x: gridScale, y: gridScale, z: gridScale }, 800)
+              .easing(TWEEN.Easing.Back.InOut)
               .onComplete(() => resolve()) // 在最後一個動畫完成時 resolve
               .start();
-          }, 500);
+          }, 200); // 更短的間隔時間
         })
         .start();
     }, delay);
   });
 }
 
-// 原版動畫函數 (V2 - 加入 gridScale)
-function animateCard(card, finalPosition, gridScale, delay = 0) {
+// 原版動畫函數 (V3 - 加入防穿模)
+function animateCard(card, finalPosition, gridScale, delay = 0, scatterPosition) {
   return new Promise((resolve) => {
-    // 階段1：起始狀態 (都在中心後方)
-    card.position.set(0, 0, -2);
-    card.rotation.set(0, Math.PI, 0); // 背面朝前
-    card.scale.set(0.1, 0.1, 0.1); // 很小
+    // 階段1：起始狀態 - 爆發式起點
+    card.position.set(0, 0, -1); // 更靠近中心，增強爆發感
+    card.rotation.set(0, 0, 0); // 修正：正面朝前 (前面是 +Z 面，索引 4)
+    card.scale.set(0.05, 0.05, 0.05); // 更小的起始尺寸，增強放大效果
     
-    // 階段2：飛舞狀態 (隨機散開)
-    const randomX = (Math.random() - 0.5) * 8;
-    const randomY = (Math.random() - 0.5) * 6;
-    const randomZ = Math.random() * 3 + 1;
+    // 階段2：飛舞狀態 - 使用預分配的分散位置避免穿模
+    const { x: randomX, y: randomY, z: randomZ } = scatterPosition;
     
     setTimeout(() => {
-      // 放大並飛到隨機位置
+      // 爆發式單卡動畫 - 快速噴出
       new TWEEN.Tween(card.position)
-        .to({ x: randomX, y: randomY, z: randomZ }, 1000)
-        .easing(TWEEN.Easing.Cubic.Out)
+        .to({ x: randomX, y: randomY, z: randomZ }, 500)
+        .easing(TWEEN.Easing.Exponential.Out)
         .start();
         
       new TWEEN.Tween(card.scale)
-        .to({ x: 1, y: 1, z: 1 }, 1000)
-        .easing(TWEEN.Easing.Cubic.Out)
+        .to({ x: 1, y: 1, z: 1 }, 500)
+        .easing(TWEEN.Easing.Exponential.Out)
         .start();
         
       new TWEEN.Tween(card.rotation)
-        .to({ x: Math.random() * Math.PI, y: Math.random() * Math.PI, z: Math.random() * Math.PI }, 1000)
-        .easing(TWEEN.Easing.Cubic.Out)
+        .to({ x: Math.random() * Math.PI, y: Math.random() * Math.PI, z: Math.random() * Math.PI }, 500)
+        .easing(TWEEN.Easing.Exponential.Out)
         .onComplete(() => {
-          // 階段3：飛到最終位置並翻轉到正面
+          // 階段3：快速歸位
           setTimeout(() => {
             new TWEEN.Tween(card.position)
-              .to(finalPosition, 1500)
-              .easing(TWEEN.Easing.Cubic.InOut)
+              .to(finalPosition, 800)
+              .easing(TWEEN.Easing.Back.InOut)
               .start();
               
             new TWEEN.Tween(card.rotation)
-              .to({ x: 0, y: 0, z: 0 }, 1500) // 正面朝前
-              .easing(TWEEN.Easing.Cubic.InOut)
+              .to({ x: 0, y: 0, z: 0 }, 800) // 正面朝前
+              .easing(TWEEN.Easing.Back.InOut)
               .start();
               
-            // [修改] 讓卡牌縮放到最終計算出的 gridScale
+            // 讓卡牌縮放到最終計算出的 gridScale
             new TWEEN.Tween(card.scale)
-              .to({ x: gridScale, y: gridScale, z: gridScale }, 1500)
-              .easing(TWEEN.Easing.Cubic.InOut)
+              .to({ x: gridScale, y: gridScale, z: gridScale }, 800)
+              .easing(TWEEN.Easing.Back.InOut)
               .onComplete(() => resolve()) // 在最後一個動畫完成時 resolve
               .start();
-          }, 500);
+          }, 200);
         })
         .start();
     }, delay);
   });
+}
+
+// 顯示載入動畫
+function showLoadingAnimation() {
+  const overlay = document.getElementById('overlay');
+  const loadingOverlay = document.getElementById('loadingOverlay');
+  const loadingText = document.getElementById('loadingText');
+  const tapHint = document.getElementById('tapHint');
+  
+  overlay.classList.add('show');
+  loadingOverlay.classList.add('show');
+  
+  // 載入階段提示
+  const loadingSteps = [
+    '正在準備 3D 場景...',
+    '載入 moda 品牌材質...',
+    '初始化粒子系統...',
+    '準備卡牌動畫...'
+  ];
+  
+  let currentStep = 0;
+  const stepInterval = setInterval(() => {
+    if (currentStep < loadingSteps.length - 1) {
+      currentStep++;
+      loadingText.textContent = loadingSteps[currentStep];
+    } else {
+      clearInterval(stepInterval);
+      // 載入完成，顯示點擊提示
+      loadingText.textContent = '準備就緒！';
+      setTimeout(() => {
+        loadingText.style.display = 'none';
+        tapHint.style.display = 'block';
+        
+        // 讓點擊提示更明顯
+        tapHint.addEventListener('mouseenter', () => {
+          tapHint.style.transform = 'scale(1.1)';
+        });
+        tapHint.addEventListener('mouseleave', () => {
+          tapHint.style.transform = 'scale(1)';
+        });
+      }, 300); // 縮短等待時間，讓介面更快回應
+    }
+  }, 400); // 進一步加快載入步驟顯示，減少等待時間
+  
+  return { loadingOverlay, tapHint };
+}
+
+// 創建點擊漣漪效果
+function createTapRipple(event, container) {
+  const ripple = document.createElement('div');
+  ripple.className = 'tap-ripple';
+  
+  const rect = container.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+  
+  ripple.style.left = x + 'px';
+  ripple.style.top = y + 'px';
+  ripple.style.width = '20px';
+  ripple.style.height = '20px';
+  
+  container.appendChild(ripple);
+  
+  setTimeout(() => {
+    ripple.remove();
+  }, 600);
 }
 
 // 3D 卡牌雨動畫主函式
 async function showCardShowerAnimation(winners) {
   return new Promise(async (resolve) => {
-    const overlay = document.getElementById('overlay');
+    // 顯示載入動畫
+    const { loadingOverlay, tapHint } = showLoadingAnimation();
     
-    // 顯示 overlay
-    overlay.classList.add('show');
+    // 確保 3D 場景已初始化
+    if (!scene) {
+      initThreeScene();
+    }
     
-    // 初始化 3D 場景
-    initThreeScene();
+    // 等待用戶點擊
+    const waitForUserInteraction = () => {
+      return new Promise((resolveClick) => {
+        const handleClick = (event) => {
+          createTapRipple(event, loadingOverlay);
+          loadingOverlay.removeEventListener('click', handleClick);
+          resolveClick();
+        };
+        loadingOverlay.addEventListener('click', handleClick);
+      });
+    };
     
-    // 開始動畫循環
+    // 等待用戶點擊
+    await waitForUserInteraction();
+    
+    // 隱藏載入動畫
+    loadingOverlay.classList.remove('show');
+    
+    // 手動啟動動畫循環
     animate();
     
-    // 創建 WebGL 卡牌（背景和效果）
+    // 創建 WebGL 卡牌（背景和效果）- 但不立即顯示
     cards = [];
     cssCards = [];
     
     winners.forEach(winnerName => {
       // WebGL 卡牌（用於背景效果）
       const webglCard = createWinnerCard(winnerName);
-      cards.push(webglCard);
-      scene.add(webglCard);
       
-      // CSS3D 卡牌（用於清晰文字）- 僅在 CSS3DRenderer 可用時
-      if (cssScene && cssRenderer) {
-        const cssCard = createCSSCard(winnerName);
-        cssCards.push(cssCard);
-        cssScene.add(cssCard);
+      // 確保卡片創建成功才添加到陣列（但不加到場景，等光點轉換後再顯示）
+      if (webglCard) {
+        cards.push(webglCard);
         
-        // 同步初始位置
-        cssCard.position.copy(webglCard.position);
-        cssCard.rotation.copy(webglCard.rotation);
-        cssCard.scale.copy(webglCard.scale);
+        // CSS3D 卡牌（用於清晰文字）- 僅在 CSS3DRenderer 可用時
+        if (cssScene && cssRenderer) {
+          const cssCard = createCSSCard(winnerName);
+          if (cssCard) {
+            cssCards.push(cssCard);
+          }
+        }
+      } else {
+        console.error('Failed to create card for winner:', winnerName);
       }
     });
     
@@ -815,32 +1733,42 @@ async function showCardShowerAnimation(winners) {
     const finalPositions = layout.positions;
     const gridScale = layout.scale; // 獲取網格縮放比例
     
-    // 等待一小段時間讓場景準備完成
-    await new Promise(r => setTimeout(r, 500));
+    // 預先生成分散的飛舞位置，避免穿模
+    const scatterPositions = generateScatteredPositions(cards.length);
     
-    // [修改] 依序啟動每張卡牌的動畫，傳入 gridScale
+    // 快速準備場景 - 進一步縮短延遲
+    await new Promise(r => setTimeout(r, 100));
+    
+    // 新版：光點噴飛轉換動畫 - 物理感更強，避免卡片分離問題
     const animationPromises = cards.map((card, index) => {
+      // 動態間隔：前幾張更快，營造爆發感
+      const baseDelay = index < 3 ? 150 : 200;
+      const delay = index * baseDelay; 
+      const scatterPos = scatterPositions[index];
+      
       if (cssCards.length > 0) {
-        // 使用 CSS3D + WebGL 混合模式
+        // 使用光點到卡片轉換動畫（CSS3D + WebGL 混合模式）
         const cssCard = cssCards[index];
-        return animateCardPair(card, cssCard, finalPositions[index], gridScale, index * 200);
+        return animateSparkleToCard(card, cssCard, finalPositions[index], gridScale, delay, scatterPos);
       } else {
-        // 僅使用 WebGL 模式
-        return animateCard(card, finalPositions[index], gridScale, index * 200);
+        // 使用光點到卡片轉換動畫（僅 WebGL 模式）
+        return animateSparkleToCard(card, null, finalPositions[index], gridScale, delay, scatterPos);
       }
     });
     
     // 等待所有動畫完成
     await Promise.all(animationPromises);
     
-    // 再等待 2 秒讓使用者欣賞最終結果
-    await new Promise(r => setTimeout(r, 2000));
+    // 新動畫系統更快完成，進一步縮短等待時間
+    await new Promise(r => setTimeout(r, 1000));
     
     // 淡出 overlay
     overlay.classList.add('fade-out');
     setTimeout(() => {
       overlay.classList.remove('show', 'fade-out');
-      // 清理 3D 場景
+
+      // 在所有事情都結束後，手動停止動畫循環並清理場景
+      stopAnimation(); 
       cleanupThreeScene();
       resolve();
     }, 1000);
@@ -861,6 +1789,28 @@ function handleWindowResize() {
     // 更新 CSS3D 渲染器大小
     if (cssRenderer) {
       cssRenderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    // *** 新增的關鍵程式碼 ***
+    // 如果場景中還有卡片，則重新計算並更新它們的位置
+    if (cards.length > 0) {
+      const layout = calculateGridLayout(cards.length);
+      const finalPositions = layout.positions;
+      const gridScale = layout.scale;
+
+      cards.forEach((card, index) => {
+        // 直接將卡片移動到新的最終位置，無需動畫
+        card.position.copy(finalPositions[index]);
+        card.scale.set(gridScale, gridScale, gridScale);
+        
+        // 如果使用 CSS3D，也要同步更新
+        if (cssCards[index]) {
+          const cssCard = cssCards[index];
+          cssCard.position.copy(card.position);
+          const s = card.scale.x * 0.006;
+          cssCard.scale.set(s, s, s);
+        }
+      });
     }
   }
 }
@@ -1102,11 +2052,14 @@ function initializeTheme() {
 }
 
 // Initialize
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   loadHistory();
   populatePrizeOptions();
   updateHistoryDisplay();
   initializeTheme(); // Call theme initialization
+  
+  // 立即開始預載入 3D 資源
+  preloadResources();
   
   // 加入視窗大小調整監聽器
   window.addEventListener('resize', handleWindowResize);
@@ -1210,7 +2163,7 @@ document.addEventListener('DOMContentLoaded', () => {
       cardBody.className = 'card-body text-center';
       const title = document.createElement('h5');
       title.className = 'card-title';
-      title.textContent = `🏆 ${name} 🏆`; // Added trophy emojis
+      title.textContent = ` ${name} `; 
       const subtitle = document.createElement('p');
       subtitle.className = 'card-text text-muted';
       subtitle.textContent = '恭喜中獎！';
