@@ -1,36 +1,113 @@
 :root {
-  /* 日間模式 (Light Mode) */
-  --primary-color-light: #1a1a1a; /* 深黑 */
-  --primary-darker-light: #3e4346; /* 稍淺的黑 */
-  --secondary-color-light: #f3f5f6; /* 淺灰色背景 */
-  --accent-color-light: #2ECC71; /* 亮綠色 */
-  --accent-color-hover-light: #27ae60; /* 亮綠色懸停 */
-  --text-dark-light: #1a1a1a; /* 主要文字顏色 */
-  --text-light-light: #FFFFFF; /* 用於深色背景上的文字 */
-  --text-muted-light: #565e62; /* 輔助文字顏色 */
-  --card-bg-light: #FFFFFF; /* 卡片背景 */
-  --input-border-light: #ced4da; /* 輸入框邊框 */
-  --input-focus-border-light: #1a1a1a; /* 輸入框焦點邊框 */
-  --input-focus-shadow-light: rgba(26, 26, 26, .25); /* 焦點陰影 */
+  /* Moda 設計系統 - 日間模式 */
+  --md-primary-1: #6868ac;
+  --md-primary-2: rgba(104, 104, 172, 0.89);
+  --md-primary-3: #4e4e81;
+  --md-primary-4: #a4a4cd;
+  --md-primary-5: #dbdbeb;
+  --md-secondary-1: #565e62;
+  --md-secondary-2: #6E777C;
+  --md-secondary-3: #7b868c;
+  --md-secondary-4: rgba(115, 125, 130, 0.5);
+  --md-neutral-1: #1a1a1a;
+  --md-neutral-2: #3e4346;
+  --md-neutral-3: #4d4d4d;
+  --md-neutral-4: gray;
+  --md-neutral-5: #b3b3b3;
+  --md-neutral-6: #ccc;
+  --md-neutral-7: #e5e5e5;
+  --md-neutral-8: #edf0f1;
+  --md-neutral-9: #f3f5f6;
+  --md-neutral-10: #f4f6f7;
+  --md-neutral-11: #c7dedf;
+  --md-neutral-12: #a2c8c9;
+  --md-neutral-15: #666;
+  --md-white-1: #fff;
+  --md-white-2: rgba(255, 255, 255, 0.5);
+  --md-black-1: #000;
 
-  /* 夜間模式 (Dark Mode) - 針對 moda 品牌優化 */
-  --primary-color-dark: #f8f9fa; /* 純淨白色文字 */
-  --primary-darker-dark: #e9ecef; /* 稍灰的白色 */
-  --secondary-color-dark: #0d1117; /* 深邃黑色背景 */
-  --accent-color-dark: #00d260; /* moda 綠色 - 更鮮明 */
-  --accent-color-hover-dark: #00b851; /* 懸停時稍深 */
-  --text-dark-dark: #f0f6fc; /* 主要文字 - 柔和白色 */
-  --text-light-dark: #0d1117; /* 用於淺色背景上的文字 */
-  --text-muted-dark: #7d8590; /* 輔助文字 - 優雅灰色 */
-  --card-bg-dark: #161b22; /* 卡片背景 - 深灰 */
-  --input-border-dark: #30363d; /* 輸入框邊框 - 中性灰 */
-  --input-focus-border-dark: #00d260; /* 輸入框焦點 - moda 綠 */
-  --input-focus-shadow-dark: rgba(0, 210, 96, .25); /* 焦點陰影 - 綠色光暈 */
+  /* Moda 現代配色系統 */
+  --brand: #6968ac;
+  --brand-strong: #03429c;
+  --on-brand: #ffffff;
+  --brand-flat: #d8e2ff;
+  --brand-flat-strong: #afc6ff;
+  --on-brand-flat: #001847;
+  --accent: #705d00;
+  --accent-strong: #554600;
+  --on-accent: #ffffff;
+  --accent-flat: #ffe25b;
+  --accent-flat-strong: #e7c400;
+  --on-accent-flat: #221b00;
+  --positive: #286b2a;
+  --positive-strong: #085314;
+  --on-positive: #ffffff;
+  --positive-flat: #acf5a3;
+  --positive-flat-strong: #90d889;
+  --on-positive-flat: #012104;
+  --negative: #ba1b1b;
+  --negative-strong: #930006;
+  --on-negative: #ffffff;
+  --negative-flat: #ffdad4;
+  --negative-flat-strong: #ffb4a9;
+  --on-negative-flat: #410001;
+  --information: #006687;
+  --information-strong: #004d67;
+  --on-information: #ffffff;
+  --information-flat: #bee8ff;
+  --information-flat-strong: #6bd2ff;
+  --on-information-flat: #001e2b;
+  --warning: #a53d00;
+  --warning-strong: #7d2c00;
+  --on-warning: #ffffff;
+  --warning-flat: #ffdbcb;
+  --warning-flat-strong: #ffb593;
+  --on-warning-flat: #360f00;
+  --surface: #fdfbff;
+  --surface-1: #F0F5F6;
+  --surface-2: #EAF0F3;
+  --surface-3: #E3EBF1;
+  --surface-4: #E1E9F1;
+  --surface-5: #DDE6EF;
+  --on-surface: #191C1B;
+  --surface-variant: #E2E2EC;
+  --on-surface-variant: #44464E;
+  --outline: #d0d1d3;
+  --background: #FAFDF9;
+  --on-background: #191C1B;
 
-  --accent-red: #DC3545; /* 保留用於清除按鈕等 */
+  /* 日間模式映射 */
+  --primary-color-light: var(--brand);
+  --primary-darker-light: var(--brand-strong);
+  --secondary-color-light: var(--background);
+  --accent-color-light: var(--accent-flat-strong);
+  --accent-color-hover-light: var(--accent);
+  --text-dark-light: var(--on-background);
+  --text-light-light: var(--on-brand);
+  --text-muted-light: var(--md-secondary-1);
+  --card-bg-light: var(--surface);
+  --input-border-light: var(--outline);
+  --input-focus-border-light: var(--brand);
+  --input-focus-shadow-light: rgba(105, 104, 172, .25);
 
-  --font-body: 'Noto Sans TC', sans-serif;
-  --font-heading: 'Noto Sans TC', sans-serif; /* 統一字體 */
+  /* 夜間模式映射 */
+  --primary-color-dark: var(--brand-flat);
+  --primary-darker-dark: var(--brand-flat-strong);
+  --secondary-color-dark: var(--md-neutral-1);
+  --accent-color-dark: var(--accent-flat);
+  --accent-color-hover-dark: var(--accent-flat-strong);
+  --text-dark-dark: var(--md-white-1);
+  --text-light-dark: var(--md-black-1);
+  --text-muted-dark: var(--md-neutral-5);
+  --card-bg-dark: var(--md-neutral-2);
+  --input-border-dark: var(--md-neutral-3);
+  --input-focus-border-dark: var(--accent-flat);
+  --input-focus-shadow-dark: rgba(231, 196, 0, .25);
+
+  --accent-red: var(--negative);
+
+  --font-body: 'Noto Sans', 'Noto Sans TC', sans-serif;
+  --font-heading: 'Noto Sans', 'Noto Sans TC', sans-serif;
   --border-radius-sm: .25rem;
   --border-radius-md: .5rem;
   --border-radius-lg: 1rem;
@@ -54,12 +131,15 @@
 
 body {
   font-family: var(--font-body);
+  font-weight: 300;
   background-color: var(--current-secondary);
   color: var(--current-text-dark);
   line-height: 1.6;
   padding-top: 20px;
   padding-bottom: 20px;
   transition: background-color 0.3s ease, color 0.3s ease;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 @keyframes backgroundFlash {
@@ -89,19 +169,23 @@ body.dark {
 }
 
 .app-header {
-  background-color: var(--current-primary);
+  background: linear-gradient(135deg, var(--current-primary) 0%, var(--current-primary-darker) 100%);
   color: var(--current-text-light);
   border-bottom-left-radius: var(--border-radius-lg);
   border-bottom-right-radius: var(--border-radius-lg);
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 4px 20px rgba(105, 104, 172, 0.3);
   margin-bottom: 2rem;
+  position: relative;
+  overflow: hidden;
 }
 
 .app-header h1 {
   font-family: var(--font-heading);
   font-size: 2.5rem;
   margin-bottom: 0;
-  font-weight: 700; /* 加粗標題 */
+  font-weight: 400;
+  letter-spacing: 0.5px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .header-icon {
@@ -114,7 +198,8 @@ body.dark {
   color: var(--current-primary-darker);
   font-size: 2rem;
   margin-bottom: 1.5rem !important;
-  font-weight: 700; /* 加粗標題 */
+  font-weight: 400;
+  letter-spacing: 0.3px;
 }
 .section-title-sm {
   font-family: var(--font-heading);
@@ -124,10 +209,11 @@ body.dark {
 }
 
 .card {
-  border-radius: var(--border-radius-md);
-  border: 1px solid var(--current-input-border); /* 為卡片增加細邊框 */
+  border-radius: 16px;
+  border: 1px solid var(--current-input-border);
   background-color: var(--current-card-bg);
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 .card-body {
@@ -135,22 +221,28 @@ body.dark {
 }
 
 .form-label {
-  font-weight: bold;
+  font-weight: 500;
   color: var(--current-primary);
+  font-size: 0.875rem;
+  letter-spacing: 0.3px;
+  margin-bottom: 0.5rem;
 }
 
 .form-control, .form-select {
-  border-radius: var(--border-radius-sm);
+  border-radius: 8px;
   border: 1px solid var(--current-input-border);
   background-color: var(--current-card-bg);
   color: var(--current-text-dark);
-  transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out, background-color 0.3s ease, color 0.3s ease;
+  font-weight: 300;
+  padding: 0.75rem 1rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .form-control:focus, .form-select:focus {
   border-color: var(--current-input-focus-border);
-  box-shadow: 0 0 0 .25rem var(--current-input-focus-shadow), 0 0 8px var(--current-input-focus-shadow); /* 增強焦點效果 */
-  outline: none; /* 移除預設 outline */
+  box-shadow: 0 0 0 3px var(--current-input-focus-shadow);
+  outline: none;
+  background-color: var(--current-card-bg);
 }
 
 .btn {
@@ -171,30 +263,38 @@ body.dark {
 }
 
 .btn-draw {
-  background-color: var(--current-accent);
+  background: linear-gradient(135deg, var(--current-accent) 0%, var(--current-accent-hover) 100%);
   border-color: var(--current-accent);
-  color: #FFFFFF; /* 強調按鈕文字固定為白色以確保對比 */
+  color: var(--on-accent);
   font-size: 1.35rem;
-  font-weight: bold;
+  font-weight: 500;
   padding: .85rem 2.2rem;
-  box-shadow: 0 5px 15px rgba(0,0,0,0.2), 0 2px 5px rgba(0,0,0,0.15);
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+  box-shadow: 0 8px 24px rgba(231, 196, 0, 0.3), 0 4px 8px rgba(0, 0, 0, 0.1);
+  text-shadow: none;
+  border-radius: 12px;
+  position: relative;
+  overflow: hidden;
 }
 .btn-draw:hover {
-  background-color: var(--current-accent-hover);
+  background: linear-gradient(135deg, var(--current-accent-hover) 0%, var(--current-accent) 100%);
   border-color: var(--current-accent-hover);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.25), 0 3px 7px rgba(0,0,0,0.2);
-  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(231, 196, 0, 0.4), 0 6px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-3px) scale(1.02);
 }
 
 .btn-clear-history {
-  background-color: var(--accent-red);
-  border-color: var(--accent-red);
-  color: var(--text-light-light); /* 清除按鈕文字固定為白色 */
+  background: linear-gradient(135deg, var(--negative) 0%, var(--negative-strong) 100%);
+  border-color: var(--negative);
+  color: var(--on-negative);
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .btn-clear-history:hover {
-  background-color: #c82333;
-  border-color: #bd2130;
+  background: linear-gradient(135deg, var(--negative-strong) 0%, var(--negative) 100%);
+  border-color: var(--negative-strong);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(186, 27, 27, 0.3);
 }
 
 #participantCount, #repeatHelp, .small {
@@ -221,15 +321,16 @@ body.dark {
 }
 
 .highlight-winner .card-body {
-  background-image: linear-gradient(45deg, var(--current-accent), var(--current-primary-darker));
-  border: 4px solid var(--current-card-bg);
-  border-radius: var(--border-radius-lg);
-  box-shadow: 0 12px 24px rgba(0,0,0,0.3);
+  background: linear-gradient(135deg, var(--current-accent) 0%, var(--current-primary) 50%, var(--current-primary-darker) 100%);
+  border: 3px solid var(--current-card-bg);
+  border-radius: 24px;
+  box-shadow: 0 20px 40px rgba(105, 104, 172, 0.2), 0 8px 16px rgba(0, 0, 0, 0.1);
   padding: 2rem;
   animation: pulseWinnerBorder 1.5s infinite, subtleTilt 10s infinite alternate ease-in-out;
   position: relative;
   overflow: hidden;
   text-align: center;
+  backdrop-filter: blur(10px);
 }
 
 .highlight-winner .card-body::before {
@@ -263,7 +364,6 @@ body.dark {
                3px 3px 3px rgba(0,0,0,0.3);
   letter-spacing: 1px;
   -webkit-text-stroke: 0.5px var(--current-primary-darker);
-  text-stroke: 0.5px var(--current-primary-darker);
   position: relative;
   z-index: 1;
   margin-bottom: 0.5rem;
@@ -282,18 +382,22 @@ body.dark {
 /* History Card Styling */
 .history-card {
   background-color: var(--current-card-bg);
-  border-radius: var(--border-radius-sm);
-  box-shadow: var(--shadow-sm);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06);
   margin-bottom: 1rem;
-  transition: background-color 0.3s ease;
+  border: 1px solid var(--current-input-border);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .history-card .card-title {
   color: var(--current-primary);
   font-size: 1.25rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
 }
 .history-card .card-subtitle {
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   color: var(--current-text-muted);
+  font-weight: 300;
 }
 
 /* Pagination */
@@ -301,14 +405,17 @@ body.dark {
   color: var(--current-primary);
   background-color: var(--current-card-bg);
   border-color: var(--current-input-border);
-  border-radius: var(--border-radius-sm);
+  border-radius: 8px;
   margin: 0 .25rem;
-  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  font-weight: 400;
+  padding: 0.5rem 0.75rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .pagination .page-item.active .page-link {
-  background-color: var(--current-primary);
+  background: linear-gradient(135deg, var(--current-primary) 0%, var(--current-primary-darker) 100%);
   border-color: var(--current-primary);
   color: var(--current-text-light);
+  box-shadow: 0 2px 8px rgba(105, 104, 172, 0.3);
 }
 .pagination .page-item.disabled .page-link {
   color: var(--current-text-muted);
@@ -324,11 +431,14 @@ body.dark {
   opacity: 0;
   animation: fadeInItem 0.4s ease-in-out forwards;
   background-color: var(--current-card-bg);
-  padding: 0.5rem 1rem;
+  padding: 0.75rem 1rem;
   margin-bottom: 0.5rem;
-  border-radius: var(--border-radius-sm);
-  box-shadow: var(--shadow-sm);
-  color: var(--current-text-dark); /* 確保列表項目文字顏色隨主題變化 */
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  border: 1px solid var(--current-input-border);
+  color: var(--current-text-dark);
+  font-weight: 300;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 @keyframes fadeInItem {
   from { opacity: 0; transform: translateX(-20px); }
@@ -413,23 +523,26 @@ body.dark {
   position: fixed;
   bottom: 20px;
   right: 20px;
-  background-color: var(--current-primary);
+  background: linear-gradient(135deg, var(--current-primary) 0%, var(--current-primary-darker) 100%);
   color: var(--current-text-light);
-  border: none;
+  border: 2px solid var(--current-card-bg);
   border-radius: 50%;
-  width: 50px;
-  height: 50px;
+  width: 56px;
+  height: 56px;
   font-size: 1.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 8px 24px rgba(105, 104, 172, 0.3), 0 4px 8px rgba(0, 0, 0, 0.1);
   cursor: pointer;
   z-index: 1000;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(10px);
 }
 .theme-toggle-button:hover {
-  background-color: var(--current-primary-darker);
+  background: linear-gradient(135deg, var(--current-primary-darker) 0%, var(--current-primary) 100%);
+  transform: scale(1.1) rotate(180deg);
+  box-shadow: 0 12px 32px rgba(105, 104, 172, 0.4), 0 6px 12px rgba(0, 0, 0, 0.15);
 }
 
 /* 載入動畫與互動提示 - moda 黑白黃主題 */
