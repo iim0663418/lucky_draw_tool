@@ -99,8 +99,13 @@ function initThreeScene() {
   canvas.style.pointerEvents = 'none';
   canvas.style.zIndex = '1';
   
+  // 渲染器分離測試模式 - 用於隔離 Safari 混合渲染問題
+  const renderTestMode = window.location.search.includes('render=');
+  const webglOnly = window.location.search.includes('render=webgl');
+  const css3dOnly = window.location.search.includes('render=css3d');
+
   // 創建 CSS3D 場景和渲染器（用於清晰文字）
-  if (typeof THREE.CSS3DRenderer !== 'undefined') {
+  if (typeof THREE.CSS3DRenderer !== 'undefined' && !webglOnly) {
     cssScene = new THREE.Scene();
     cssRenderer = new THREE.CSS3DRenderer();
     cssRenderer.setSize(window.innerWidth, window.innerHeight);
@@ -113,11 +118,15 @@ function initThreeScene() {
     // 將 CSS3D 渲染器添加到 overlay
     const overlay = document.getElementById('overlay');
     overlay.appendChild(cssRenderer.domElement);
-    console.log('CSS3DRenderer loaded successfully');
+    console.log('CSS3DRenderer loaded successfully', { renderTestMode, webglOnly, css3dOnly });
   } else {
-    console.info('CSS3DRenderer not available, using enhanced WebGL-only mode');
+    console.info('CSS3DRenderer not available or disabled, using enhanced WebGL-only mode');
     cssScene = null;
     cssRenderer = null;
+  }
+
+  if (renderTestMode) {
+    console.log(`Safari 渲染測試模式: ${webglOnly ? 'WebGL Only' : css3dOnly ? 'CSS3D Only' : 'Mixed Mode'}`);
   }
   
   // 加入基本光照
@@ -130,6 +139,11 @@ function initThreeScene() {
 }
 
 // 創建超高品質文字材質的函數 (SDF-like approach) - moda 黑白黃主題
+// Safari 用戶代理檢測
+function isSafari() {
+  return /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+}
+
 function createUltraTextTexture(text, fontSize = 48, textColor = '#1a1a1a', bgColor = '#FFD700') {
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
@@ -181,7 +195,12 @@ function createUltraTextTexture(text, fontSize = 48, textColor = '#1a1a1a', bgCo
   texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.magFilter = THREE.LinearFilter;
   texture.format = THREE.RGBAFormat;
-  texture.flipY = false; // 避免上下翻轉
+  
+  // Safari 專屬 flipY 調整
+  texture.flipY = isSafari() ? true : false;
+  
+  // 強制更新紋理 - 修復 Safari 快取問題
+  texture.needsUpdate = true;
   
   // 如果支持各向異性過濾，啟用最高級別
   if (renderer && renderer.capabilities) {
@@ -195,7 +214,7 @@ function createUltraTextTexture(text, fontSize = 48, textColor = '#1a1a1a', bgCo
     map: texture,
     transparent: true,
     alphaTest: 0.1,
-    side: THREE.FrontSide
+    side: THREE.DoubleSide
   });
 }
 
@@ -473,6 +492,9 @@ function createLogoTexture() {
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = 'high';
   
+  // 創建紋理
+  const texture = new THREE.CanvasTexture(canvas);
+  
   // 嘗試載入實際 Logo 圖片
   const img = new Image();
   img.crossOrigin = 'anonymous';
@@ -485,10 +507,16 @@ function createLogoTexture() {
     const y = (512 - height) / 2;
     
     context.drawImage(img, x, y, width, height);
+    
+    // 強制更新紋理 - 修復 Safari 非同步載入問題
+    texture.needsUpdate = true;
   };
   img.onerror = function() {
     // 圖片載入失敗，使用精美的後備設計
     drawFallbackLogo(context);
+    
+    // 強制更新紋理
+    texture.needsUpdate = true;
   };
   
   // 載入實際 Logo
@@ -497,8 +525,6 @@ function createLogoTexture() {
   // 先設置預設內容
   drawFallbackLogo(context);
   
-  const texture = new THREE.CanvasTexture(canvas);
-  
   // 啟用 Mipmap 生成以獲得更好的渲染品質
   texture.generateMipmaps = true;
   
@@ -506,13 +532,18 @@ function createLogoTexture() {
   texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.magFilter = THREE.LinearFilter;
   texture.format = THREE.RGBAFormat;
-  texture.flipY = false; // 避免上下翻轉
+  
+  // Safari 專屬 flipY 調整
+  texture.flipY = isSafari() ? true : false;
+  
+  // 初始強制更新紋理
+  texture.needsUpdate = true;
   
   return new THREE.MeshBasicMaterial({ 
     map: texture,
     transparent: true,
     alphaTest: 0.1,
-    side: THREE.FrontSide
+    side: THREE.DoubleSide
   });
 }
 
@@ -559,19 +590,39 @@ function createWinnerCard(winnerName) {
     return null;
   }
   
-  // THREE.js BoxGeometry 標準面順序映射
-  const materials = [
-    sideMaterial,   // 0: 右面 (+X)
-    sideMaterial,   // 1: 左面 (-X) 
-    sideMaterial,   // 2: 上面 (+Y)
-    sideMaterial,   // 3: 下面 (-Y)
-    frontMaterial,  // 4: 前面 (+Z) - 文字面
-    backMaterial    // 5: 後面 (-Z) - Logo 面
-  ];
+  // 色塊材質測試模式 - 用於驗證 Safari 材質映射
+  const debugMode = window.location.search.includes('debug=materials');
+  
+  let materials;
+  if (debugMode) {
+    // 6色測試材質驗證 BoxGeometry 面對應
+    const testColors = [
+      new THREE.MeshBasicMaterial({ color: 0xFF0000, side: THREE.DoubleSide }), // 0: 紅色 - 右面 (+X)
+      new THREE.MeshBasicMaterial({ color: 0x00FF00, side: THREE.DoubleSide }), // 1: 綠色 - 左面 (-X)
+      new THREE.MeshBasicMaterial({ color: 0x0000FF, side: THREE.DoubleSide }), // 2: 藍色 - 上面 (+Y)
+      new THREE.MeshBasicMaterial({ color: 0xFFFF00, side: THREE.DoubleSide }), // 3: 黃色 - 下面 (-Y)
+      new THREE.MeshBasicMaterial({ color: 0xFF00FF, side: THREE.DoubleSide }), // 4: 洋紅 - 前面 (+Z) - 應顯示文字
+      new THREE.MeshBasicMaterial({ color: 0x00FFFF, side: THREE.DoubleSide })  // 5: 青色 - 後面 (-Z) - 應顯示 Logo
+    ];
+    materials = testColors;
+    console.log('Debug mode: Using 6-color test materials for Safari compatibility verification');
+  } else {
+    // THREE.js BoxGeometry 標準面順序映射
+    materials = [
+      sideMaterial,   // 0: 右面 (+X)
+      sideMaterial,   // 1: 左面 (-X) 
+      sideMaterial,   // 2: 上面 (+Y)
+      sideMaterial,   // 3: 下面 (-Y)
+      frontMaterial,  // 4: 前面 (+Z) - 文字面
+      backMaterial    // 5: 後面 (-Z) - Logo 面
+    ];
+  }
   
   console.log(`Created materials for card: ${winnerName}`, {
     frontMaterial: frontMaterial.map ? 'with texture' : 'basic material',
-    backMaterial: backMaterial.map ? 'with texture' : 'basic material'
+    backMaterial: backMaterial.map ? 'with texture' : 'basic material',
+    isSafari: isSafari(),
+    debugMode: debugMode
   });
   
   // 驗證所有材質都正確創建
@@ -629,13 +680,18 @@ function animate() {
     updateExplosionParticles(explosionParticles, deltaTime);
   }
 
+  // 渲染器分離測試 - 用於 Safari 相容性除錯
+  const renderTestMode = window.location.search.includes('render=');
+  const webglOnly = window.location.search.includes('render=webgl');
+  const css3dOnly = window.location.search.includes('render=css3d');
+
   // 渲染 WebGL 場景（背景和效果）
-  if (renderer && scene && camera) {
+  if (renderer && scene && camera && !css3dOnly) {
     renderer.render(scene, camera);
   }
 
   // 渲染 CSS3D 場景（清晰文字）
-  if (cssRenderer && cssScene && camera) {
+  if (cssRenderer && cssScene && camera && !webglOnly) {
     cssRenderer.render(cssScene, camera);
   }
 }
