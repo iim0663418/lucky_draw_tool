@@ -13,6 +13,89 @@ let preloadedTextures = {}; // 預載入的材質快取
 // 抽獎狀態管理
 let isDrawing = false;
 
+// 效能監控變數
+let performanceMonitor = {
+  frames: 0,
+  lastTime: 0,
+  fps: 60,
+  lowFpsCount: 0,
+  performanceDegraded: false,
+  fpsHistory: []
+};
+
+// 檢測效能並自動降級
+function checkPerformanceAndDegrade() {
+  const now = performance.now();
+  const delta = now - performanceMonitor.lastTime;
+  
+  if (delta >= 1000) { // 每秒檢測一次
+    performanceMonitor.fps = Math.round((performanceMonitor.frames * 1000) / delta);
+    performanceMonitor.fpsHistory.push(performanceMonitor.fps);
+    
+    // 保持最近 5 秒的 FPS 記錄
+    if (performanceMonitor.fpsHistory.length > 5) {
+      performanceMonitor.fpsHistory.shift();
+    }
+    
+    // 計算平均 FPS
+    const avgFPS = performanceMonitor.fpsHistory.reduce((a, b) => a + b, 0) / performanceMonitor.fpsHistory.length;
+    
+    // 如果平均 FPS 低於 30 且未降級
+    if (avgFPS < 30 && !performanceMonitor.performanceDegraded) {
+      performanceMonitor.lowFpsCount++;
+      console.warn(`Low FPS detected: ${avgFPS.toFixed(1)} FPS (count: ${performanceMonitor.lowFpsCount})`);
+      
+      // 連續 3 次低 FPS 則啟動降級
+      if (performanceMonitor.lowFpsCount >= 3) {
+        degradePerformance();
+      }
+    } else {
+      performanceMonitor.lowFpsCount = 0; // 重置低 FPS 計數
+    }
+    
+    performanceMonitor.frames = 0;
+    performanceMonitor.lastTime = now;
+  }
+  
+  performanceMonitor.frames++;
+}
+
+// 效能降級函數
+function degradePerformance() {
+  performanceMonitor.performanceDegraded = true;
+  console.log('🚨 Performance degradation activated - switching to simplified rendering');
+  
+  // 顯示用戶通知
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    position: fixed; top: 20px; right: 20px; z-index: 9999;
+    background: #ff9800; color: white; padding: 12px 16px;
+    border-radius: 4px; font-size: 14px; max-width: 300px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  `;
+  notification.innerHTML = '⚡ 為優化效能，已切換至簡化渲染模式';
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.remove();
+  }, 5000);
+  
+  // 實施降級策略
+  if (renderer) {
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1)); // 降低像素比
+    renderer.antialias = false; // 關閉抗鋸齒
+  }
+  
+  // 減少粒子效果
+  if (cards) {
+    cards.forEach(card => {
+      if (card.material && card.material.transparent) {
+        card.material.transparent = false; // 關閉透明度
+      }
+    });
+  }
+}
+
 // 預載入 3D 資源
 async function preloadResources() {
   try {
@@ -664,6 +747,9 @@ let lastTime = performance.now();
 function animate() {
   // 這個 ID 會在 stopAnimation 被清除，所以這是循環的條件
   animationId = requestAnimationFrame(animate);
+
+  // 效能監控
+  checkPerformanceAndDegrade();
 
   // 計算 deltaTime
   const currentTime = performance.now();

@@ -129,6 +129,34 @@
   --current-input-focus-shadow: var(--input-focus-shadow-light);
 }
 
+/* 鍵盤導航焦點樣式 */
+.btn:focus-visible,
+.form-control:focus-visible,
+.form-select:focus-visible,
+.form-check-input:focus-visible,
+.theme-toggle-button:focus-visible {
+  outline: 3px solid var(--md-primary-1);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(104, 104, 172, 0.25);
+}
+
+/* 跳過連結（為螢幕閱讀器使用者提供） */
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 6px;
+  background: var(--md-primary-1);
+  color: var(--md-white-1);
+  padding: 8px;
+  z-index: 10000;
+  text-decoration: none;
+  border-radius: 4px;
+}
+
+.skip-link:focus {
+  top: 6px;
+}
+
 body {
   font-family: var(--font-body);
   font-weight: 300;
@@ -446,6 +474,24 @@ body.dark {
 }
 
 /* Overlay styles */
+/* 減少動畫偏好設定 - 尊重使用者的可訪問性需求 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  .overlay,
+  .winner-card,
+  .css-card {
+    transform: none !important;
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 .overlay {
   display: none !important;
   position: fixed;
