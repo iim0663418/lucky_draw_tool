@@ -10,6 +10,9 @@ let cssCards = [];
 let animationId;
 let preloadedTextures = {}; // 預載入的材質快取
 
+// 抽獎狀態管理
+let isDrawing = false;
+
 // 預載入 3D 資源
 async function preloadResources() {
   try {
@@ -708,32 +711,143 @@ function stopAnimation() {
 function cleanupThreeScene() {
   // stopAnimation(); // 移到 showCardShowerAnimation 的結尾處呼叫，避免重複
   
-  // 清理卡牌
-  cards.forEach(card => {
-    if (card.geometry) card.geometry.dispose();
-    if (card.material) {
-      if (Array.isArray(card.material)) {
-        card.material.forEach(mat => {
-          if (mat.map) mat.map.dispose();
-          mat.dispose();
-        });
-      } else {
-        if (card.material.map) card.material.map.dispose();
-        card.material.dispose();
+  // 清理 WebGL 卡牌 - 強化 GPU 記憶體管理
+  cards.forEach((card, index) => {
+    try {
+      // 清理幾何體
+      if (card.geometry) {
+        card.geometry.dispose();
+        card.geometry = null;
       }
+      
+      // 清理材質和紋理
+      if (card.material) {
+        if (Array.isArray(card.material)) {
+          card.material.forEach((mat, matIndex) => {
+            try {
+              // 清理紋理
+              if (mat.map) {
+                mat.map.dispose();
+                mat.map = null;
+              }
+              // 清理其他可能的紋理
+              if (mat.normalMap) {
+                mat.normalMap.dispose();
+                mat.normalMap = null;
+              }
+              if (mat.roughnessMap) {
+                mat.roughnessMap.dispose();
+                mat.roughnessMap = null;
+              }
+              if (mat.metalnessMap) {
+                mat.metalnessMap.dispose();
+                mat.metalnessMap = null;
+              }
+              // 清理材質本身
+              mat.dispose();
+            } catch (error) {
+              console.warn(`Failed to dispose material ${matIndex} for card ${index}:`, error);
+            }
+          });
+        } else {
+          try {
+            // 清理單一材質的所有紋理
+            if (card.material.map) {
+              card.material.map.dispose();
+              card.material.map = null;
+            }
+            if (card.material.normalMap) {
+              card.material.normalMap.dispose();
+              card.material.normalMap = null;
+            }
+            if (card.material.roughnessMap) {
+              card.material.roughnessMap.dispose();
+              card.material.roughnessMap = null;
+            }
+            if (card.material.metalnessMap) {
+              card.material.metalnessMap.dispose();
+              card.material.metalnessMap = null;
+            }
+            card.material.dispose();
+          } catch (error) {
+            console.warn(`Failed to dispose material for card ${index}:`, error);
+          }
+        }
+        card.material = null;
+      }
+      
+      // 從場景移除
+      if (scene && card) {
+        scene.remove(card);
+      }
+      
+      // 清理用戶數據
+      if (card.userData) {
+        card.userData = null;
+      }
+      
+    } catch (error) {
+      console.warn(`Failed to cleanup WebGL card at index ${index}:`, error);
     }
-    if (scene) scene.remove(card);
   });
   cards = [];
   
-  // 清理 CSS3D 卡牌
-  cssCards.forEach(cssCard => {
-    if (cssScene) cssScene.remove(cssCard);
-    if (cssCard.element && cssCard.element.parentNode) {
-      cssCard.element.parentNode.removeChild(cssCard.element);
+  // 清理 CSS3D 卡牌 - 強化穩定性
+  cssCards.forEach((cssCard, index) => {
+    try {
+      // 從 CSS3D 場景移除
+      if (cssScene && cssCard) {
+        cssScene.remove(cssCard);
+      }
+      // 從 DOM 移除元素
+      if (cssCard && cssCard.element) {
+        const element = cssCard.element;
+        if (element.parentNode) {
+          element.parentNode.removeChild(element);
+        }
+        // 確保事件監聽器也被清理
+        element.onclick = null;
+        element.onmousedown = null;
+        element.onmouseup = null;
+      }
+    } catch (error) {
+      console.warn(`Failed to cleanup CSS3D card at index ${index}:`, error);
     }
   });
   cssCards = [];
+  
+  // 額外清理：移除任何殘留的 CSS 卡片元素 - 多層保護
+  try {
+    const overlay = document.getElementById('overlay');
+    if (overlay) {
+      // 清理 .css-card 元素
+      const cssCardElements = overlay.querySelectorAll('.css-card');
+      cssCardElements.forEach((element, index) => {
+        try {
+          if (element.parentNode) {
+            element.parentNode.removeChild(element);
+          }
+        } catch (error) {
+          console.warn(`Failed to remove CSS card element at index ${index}:`, error);
+        }
+      });
+      
+      // 清理可能的 CSS3D 渲染器 DOM 節點
+      const css3dElements = overlay.querySelectorAll('[style*="transform-style"]');
+      css3dElements.forEach(element => {
+        if (element.classList.contains('css-card') || 
+            element.querySelector('.css-card')) {
+          try {
+            element.remove();
+          } catch (error) {
+            console.warn('Failed to remove CSS3D element:', error);
+          }
+        }
+      });
+    }
+  } catch (error) {
+    console.warn('Failed during additional CSS card cleanup:', error);
+  }
   
   // 清理渲染器
   if (renderer) {
@@ -2191,7 +2305,30 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
   document.getElementById('drawButton').addEventListener('click', async function () {
-    const textarea = document.getElementById('nameList');
+    // 防呆機制：檢查是否正在抽獎
+    if (isDrawing) {
+      console.log('抽獎進行中，請稍後再試');
+      return;
+    }
+    
+    // 設置抽獎狀態
+    isDrawing = true;
+    const drawButton = document.getElementById('drawButton');
+    const originalText = drawButton.textContent;
+    drawButton.disabled = true;
+    drawButton.textContent = '抽獎中...';
+    
+    let winners = []; // 在 try 區塊外部宣告以便 finally 區塊使用
+    
+    try {
+      // 清理之前的 3D 場景和卡片，避免重複抽獎時出現殘留
+      cleanupThreeScene();
+      
+      // 清理之前的中獎者顯示區域
+      const winnersContainer = document.getElementById('winnersContainer');
+      winnersContainer.innerHTML = '';
+      
+      const textarea = document.getElementById('nameList');
     const seedInput = document.getElementById('seedInput').value.trim();
     const prizeInput = document.getElementById('prizeInput').value.trim() || '未命名品項';
     const countInput = document.getElementById('winnerCount').value.trim();
@@ -2227,15 +2364,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    // 獲取中獎者
-    const shuffled = await shuffleWithSHA256(participants, seed);
-    const winners = shuffled.slice(0, winnerCount);
+      // 獲取中獎者
+      const shuffled = await shuffleWithSHA256(participants, seed);
+      winners = shuffled.slice(0, winnerCount);
 
     // 顯示 3D 卡牌雨動畫
     await showCardShowerAnimation(winners);
-
-    const winnersContainer = document.getElementById('winnersContainer');
-    winnersContainer.innerHTML = '';
 
     // Display winners
     winners.forEach((name, index) => {
@@ -2345,8 +2479,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (historyList.length > 10) { // Keep only last 10 records for simplicity, adjust as needed
       historyList.splice(10);
     }
-    saveHistory();
-    populatePrizeOptions();
-    updateHistoryDisplay();
+      saveHistory();
+      populatePrizeOptions();
+      updateHistoryDisplay();
+      
+    } catch (error) {
+      console.error('抽獎過程發生錯誤:', error);
+      alert('抽獎過程發生錯誤，請重新嘗試');
+    } finally {
+      // 重置抽獎狀態
+      isDrawing = false;
+      drawButton.disabled = false;
+      drawButton.textContent = winners && winners.length > 0 ? '再次抽獎' : '開始抽獎';
+    }
   });
 });
