@@ -170,6 +170,7 @@ body.dark .form-select {
   background-color: var(--form-bg-dark);  /* Darker than card surface for inset effect */
   border-color: var(--gray-border-dark);
   border-width: 1.5px;  /* Slightly thicker for better visibility */
+  color: var(--white);  /* White text for visibility */
 }
 
 body.dark .form-control:focus,
