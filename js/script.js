@@ -1602,31 +1602,32 @@ function animateSparkleToCard(webglCard, cssCard, finalPosition, gridScale, dela
       z: 0
     };
     sparkle.position.set(initialOffset.x, initialOffset.y, initialOffset.z);
-    
-    setTimeout(() => {
+
+    // 執行爆炸效果的函數
+    const executeExplosion = () => {
       // === 超級爆炸啟動序列 ===
-      
+
       // 1. 觸發初始大爆炸
       const initialExplosion = triggerMegaExplosion(sparkle.position);
       explosionParticles.push(...initialExplosion);
-      
+
       // 2. 創建放射狀背景效果
       createRadialBurst(sparkle.position, 16);
-      
+
       // 3. 創建彩虹色爆炸
       createColorBurst(sparkle.position);
-      
+
       // 階段1：光點爆發式噴出 - 添加重力效果
       sparkle.scale.set(1, 1, 1);
       trail.visible = true;
-      
+
       // 計算拋物線軌跡的控制點（模擬重力）
       const midPoint = {
         x: (initialOffset.x + scatterPosition.x) / 2 + (Math.random() - 0.5) * 1.0,
         y: (initialOffset.y + scatterPosition.y) / 2 + Math.abs(scatterPosition.x) * 0.3, // 上拋效果
         z: (initialOffset.z + scatterPosition.z) / 2
       };
-      
+
       // 分兩段動畫模擬拋物線
       // 第一段：上升階段
       new TWEEN.Tween(sparkle.position)
@@ -1643,10 +1644,10 @@ function animateSparkleToCard(webglCard, cssCard, finalPosition, gridScale, dela
               // 階段2：短暫彈跳效果
               const bounceHeight = 0.1;
               new TWEEN.Tween(sparkle.position)
-                .to({ 
-                  x: scatterPosition.x, 
-                  y: scatterPosition.y + bounceHeight, 
-                  z: scatterPosition.z 
+                .to({
+                  x: scatterPosition.x,
+                  y: scatterPosition.y + bounceHeight,
+                  z: scatterPosition.z
                 }, 150)
                 .easing(TWEEN.Easing.Bounce.Out)
                 .onUpdate(() => updateSparkleTrail(trail, sparkle.position))
@@ -1664,20 +1665,20 @@ function animateSparkleToCard(webglCard, cssCard, finalPosition, gridScale, dela
                           .onUpdate(() => updateSparkleTrail(trail, sparkle.position))
                           .onComplete(() => {
                             // === 最終爆炸與卡片顯現 ===
-                            
+
                             // 1. 小型爆炸標記光點到達
                             const finalExplosion = createExplosionParticles(finalPosition, 15);
                             explosionParticles.push(...finalExplosion);
-                            
+
                             // 2. 小型震動效果
                             triggerCameraShake(0.06, 0.3);
-                            
+
                             // 3. 小型衝擊波
                             createShockwave(finalPosition, 0.8, 0.4);
-                            
+
                             // 4. 螢幕閃光（較輕微）
                             triggerScreenFlash(0.4, 0.1);
-                            
+
                             // 光點消失，卡片顯現
                             fadeOutSparkle(sparkle, trail);
                             revealCard(webglCard, cssCard, finalPosition, gridScale, resolve);
@@ -1703,7 +1704,7 @@ function animateSparkleToCard(webglCard, cssCard, finalPosition, gridScale, dela
         .repeat(Infinity)
         .yoyo(true)
         .start();
-        
+
       // 光點閃爍效果
       new TWEEN.Tween(sparkle.material)
         .to({ opacity: 0.6 }, 250)
@@ -1711,8 +1712,14 @@ function animateSparkleToCard(webglCard, cssCard, finalPosition, gridScale, dela
         .repeat(Infinity)
         .yoyo(true)
         .start();
-        
-    }, delay);
+    };
+
+    // 當 delay = 0 時直接執行，否則使用 setTimeout
+    if (delay === 0) {
+      executeExplosion();
+    } else {
+      setTimeout(executeExplosion, delay);
+    }
   });
 }
 
