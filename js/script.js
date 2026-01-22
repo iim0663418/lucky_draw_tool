@@ -2492,6 +2492,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       .map(name => name.trim())
       .filter(name => name !== '');
 
+    if (participants.length < 1) {
+      alert('請至少輸入 1 位參與者');
+      return;
+    }
+
     let winnerCount = parseInt(countInput, 10);
     if (isNaN(winnerCount) || winnerCount < 1) {
       alert('請輸入正確的得獎人數');
@@ -2499,10 +2504,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (!allowRepeat && winnerCount > participants.length) {
       alert('得獎人數不得超過參與者總數，或請勾選允許重複中獎');
-      return;
-    }
-    if (participants.length < 1) {
-      alert('請至少輸入 1 位參與者');
       return;
     }
 
