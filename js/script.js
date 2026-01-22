@@ -13,6 +13,24 @@ let preloadedTextures = {}; // 預載入的材質快取
 // 抽獎狀態管理
 let isDrawing = false;
 
+// === Phase 3: 錯誤處理函數 ===
+function showAlert(message, type = 'danger') {
+  const alertDiv = document.createElement('div');
+  alertDiv.className = `alert alert-${type} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+  alertDiv.style.zIndex = '9999';
+  alertDiv.style.maxWidth = '500px';
+  alertDiv.innerHTML = `
+    ${message}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  `;
+  document.body.appendChild(alertDiv);
+  
+  setTimeout(() => {
+    alertDiv.classList.remove('show');
+    setTimeout(() => alertDiv.remove(), 150);
+  }, 3000);
+}
+
 // 效能監控變數
 let performanceMonitor = {
   frames: 0,
@@ -2227,7 +2245,7 @@ function updateHistoryDisplay() {
 function exportHistory() {
   // Check if history is empty
   if (historyList.length === 0) {
-    alert('目前沒有抽獎紀錄可匯出');
+    showAlert('目前沒有抽獎紀錄可匯出', 'info');
     return;
   }
 
@@ -2458,7 +2476,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const drawButton = document.getElementById('drawButton');
     const originalText = drawButton.textContent;
     drawButton.disabled = true;
-    drawButton.textContent = '抽獎中...';
+    drawButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>抽獎中...';
     
     let winners = []; // 在 try 區塊外部宣告以便 finally 區塊使用
     
@@ -2493,17 +2511,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       .filter(name => name !== '');
 
     if (participants.length < 1) {
-      alert('請至少輸入 1 位參與者');
+      showAlert('請至少輸入 1 位參與者');
       return;
     }
 
     let winnerCount = parseInt(countInput, 10);
     if (isNaN(winnerCount) || winnerCount < 1) {
-      alert('請輸入正確的得獎人數');
+      showAlert('請輸入正確的得獎人數');
       return;
     }
     if (!allowRepeat && winnerCount > participants.length) {
-      alert('得獎人數不得超過參與者總數，或請勾選允許重複中獎');
+      showAlert('得獎人數不得超過參與者總數，或請勾選允許重複中獎', 'warning');
       return;
     }
 
@@ -2629,7 +2647,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       
     } catch (error) {
       console.error('抽獎過程發生錯誤:', error);
-      alert('抽獎過程發生錯誤，請重新嘗試');
+      showAlert('抽獎過程發生錯誤，請重新嘗試');
     } finally {
       // 重置抽獎狀態
       isDrawing = false;

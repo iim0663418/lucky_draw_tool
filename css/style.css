@@ -1,3 +1,6 @@
+/* === Google Fonts === */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap');
+
 :root {
   /* === Moda 4-Color System: Core Tokens === */
   /* Primary Colors */
@@ -48,8 +51,8 @@
   --accent-red: var(--error);
 
   /* === Design System Tokens === */
-  --font-body: 'Noto Sans', 'Noto Sans TC', sans-serif;
-  --font-heading: 'Noto Sans', 'Noto Sans TC', sans-serif;
+  --font-body: 'Noto Sans TC', 'Microsoft JhengHei', 'PingFang TC', sans-serif;
+  --font-heading: 'Noto Sans TC', 'Microsoft JhengHei', 'PingFang TC', sans-serif;
   --border-radius-sm: .25rem;
   --border-radius-md: .5rem;
   --border-radius-lg: 1rem;
