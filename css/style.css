@@ -185,6 +185,7 @@ body.dark .form-select:focus {
 body.dark .card {
   border-color: #4D5358;  /* More visible border */
   background-color: var(--black-soft);
+  color: var(--white);  /* White text for card content */
 }
 
 body.dark .history-card {
