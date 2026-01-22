@@ -583,6 +583,7 @@ body.dark .form-check-label {
 body.dark .alert-info {
   background: rgba(164, 164, 205, 0.15);
   border-left-color: var(--purple-light);
+  color: var(--white);
 }
 
 /* Alert Success - Yellow Theme */
@@ -595,6 +596,7 @@ body.dark .alert-info {
 body.dark .alert-success {
   background: rgba(255, 215, 0, 0.15);
   border-left-color: var(--yellow);
+  color: var(--white);
 }
 
 /* Alert Warning - Orange Theme */
@@ -607,6 +609,7 @@ body.dark .alert-success {
 body.dark .alert-warning {
   background: rgba(255, 152, 0, 0.15);
   border-left-color: var(--warning);
+  color: var(--white);
 }
 
 /* Alert Danger - Red Theme */
@@ -619,6 +622,7 @@ body.dark .alert-warning {
 body.dark .alert-danger {
   background: rgba(220, 53, 69, 0.15);
   border-left-color: var(--error);
+  color: var(--white);
 }
 
 /* Alert Dismissible */
@@ -657,6 +661,7 @@ body.dark .alert-danger {
 body.dark .modal-content {
   background-color: var(--black-soft);
   border: 1px solid var(--gray-border-dark);
+  color: var(--white);
 }
 
 .modal-header {
