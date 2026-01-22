@@ -743,30 +743,41 @@ function createWinnerCard(winnerName) {
 // 全域變數存儲爆炸粒子和時間
 let explosionParticles = [];
 let lastTime = performance.now();
+let frameCount = 0;
+const PERF_CHECK_INTERVAL = 60; // 每 60 幀檢查一次效能 (~1 秒)
+let isAnimating = false;
 
 function animate() {
-  // 這個 ID 會在 stopAnimation 被清除，所以這是循環的條件
-  animationId = requestAnimationFrame(animate);
-
-  // 效能監控
-  checkPerformanceAndDegrade();
-
   // 計算 deltaTime
   const currentTime = performance.now();
   const deltaTime = (currentTime - lastTime) / 1000; // 轉換為秒
   lastTime = currentTime;
 
-  // 如果有動畫庫（TWEEN.js），更新補間動畫
-  if (typeof TWEEN !== 'undefined') {
-    TWEEN.update();
+  // 節流效能監控：每 60 幀檢查一次（而非每幀）
+  frameCount++;
+  if (frameCount % PERF_CHECK_INTERVAL === 0) {
+    checkPerformanceAndDegrade();
   }
-  
-  // 更新螢幕震動效果
-  updateCameraShake(deltaTime);
-  
+
+  // 檢查是否有任何需要更新的動畫
+  let needsContinue = false;
+
   // 更新爆炸粒子動畫
   if (explosionParticles.length > 0) {
     updateExplosionParticles(explosionParticles, deltaTime);
+    needsContinue = true;
+  }
+
+  // 更新螢幕震動效果
+  if (cameraShake.isShaking) {
+    updateCameraShake(deltaTime);
+    needsContinue = true;
+  }
+
+  // 如果有動畫庫（TWEEN.js），更新補間動畫
+  if (typeof TWEEN !== 'undefined' && TWEEN.getAll().length > 0) {
+    TWEEN.update();
+    needsContinue = true;
   }
 
   // 渲染器分離測試 - 用於 Safari 相容性除錯
@@ -783,14 +794,36 @@ function animate() {
   if (cssRenderer && cssScene && camera && !webglOnly) {
     cssRenderer.render(cssScene, camera);
   }
+
+  // 按需渲染：如果有動畫需要繼續，則繼續循環；否則停止
+  if (needsContinue) {
+    animationId = requestAnimationFrame(animate);
+  } else {
+    stopAnimationLoop();
+  }
+}
+
+// 啟動動畫循環（按需）
+function startAnimationLoop() {
+  if (!isAnimating) {
+    isAnimating = true;
+    lastTime = performance.now(); // 重置時間，避免 deltaTime 過大
+    animate();
+  }
 }
 
 // 停止動畫循環
-function stopAnimation() {
+function stopAnimationLoop() {
   if (animationId) {
     cancelAnimationFrame(animationId);
     animationId = null;
+    isAnimating = false;
   }
+}
+
+// 停止動畫循環（向後相容的別名）
+function stopAnimation() {
+  stopAnimationLoop();
 }
 
 // 清理 3D 場景
@@ -1054,11 +1087,11 @@ function generateScatteredPositions(count) {
 // 創建多種爆炸粒子類型
 function createExplosionParticles(position, count = 20) {
   const particles = [];
-  
+
   for (let i = 0; i < count; i++) {
     const particleType = Math.random();
     let particle;
-    
+
     if (particleType < 0.4) {
       // 40% 星星粒子
       particle = createStarParticle();
@@ -1069,24 +1102,29 @@ function createExplosionParticles(position, count = 20) {
       // 30% 碎片粒子
       particle = createDebrisParticle();
     }
-    
+
     // 設置爆炸的隨機方向和速度
     const angle = Math.random() * Math.PI * 2;
     const elevation = (Math.random() - 0.5) * Math.PI;
     const speed = 2 + Math.random() * 4; // 增加爆炸速度
-    
+
     const velocity = {
       x: Math.cos(angle) * Math.cos(elevation) * speed,
       y: Math.sin(elevation) * speed,
       z: Math.sin(angle) * Math.cos(elevation) * speed
     };
-    
+
     particle.position.copy(position);
     particle.userData = { velocity, life: 1.0, maxLife: 1.0 + Math.random() * 0.5 };
     particles.push(particle);
     scene.add(particle);
   }
-  
+
+  // 啟動動畫循環以處理粒子動畫
+  if (particles.length > 0) {
+    startAnimationLoop();
+  }
+
   return particles;
 }
 
@@ -1221,10 +1259,13 @@ function triggerCameraShake(intensity = 0.1, duration = 0.5) {
   if (camera && !cameraShake.isShaking) {
     cameraShake.originalPosition.copy(camera.position);
   }
-  
+
   cameraShake.intensity = Math.max(cameraShake.intensity, intensity);
   cameraShake.duration = Math.max(cameraShake.duration, duration);
   cameraShake.isShaking = true;
+
+  // 啟動動畫循環以處理震動效果
+  startAnimationLoop();
 }
 
 // 更新螢幕震動效果
@@ -1345,13 +1386,13 @@ function createShockwave(position, maxRadius = 1.5, duration = 0.6) {
   shockwave.rotation.y = Math.random() * Math.PI;
   
   scene.add(shockwave);
-  
+
   // 衝擊波擴散動畫
   new TWEEN.Tween(shockwave.scale)
     .to({ x: maxRadius * 10, y: maxRadius * 10, z: 1 }, duration * 1000)
     .easing(TWEEN.Easing.Cubic.Out)
     .start();
-  
+
   // 衝擊波淡出
   new TWEEN.Tween(shockwaveMaterial)
     .to({ opacity: 0 }, duration * 1000)
@@ -1362,7 +1403,10 @@ function createShockwave(position, maxRadius = 1.5, duration = 0.6) {
       shockwaveMaterial.dispose();
     })
     .start();
-  
+
+  // 啟動動畫循環以處理 TWEEN 動畫
+  startAnimationLoop();
+
   return shockwave;
 }
 
@@ -1403,7 +1447,10 @@ function createRadialBurst(position, count = 12) {
       })
       .start();
   }
-  
+
+  // 啟動動畫循環以處理 TWEEN 動畫
+  startAnimationLoop();
+
   return bursts;
 }
 
@@ -1472,7 +1519,10 @@ function createColorBurst(position, colors = [0xFF1493, 0x00CED1, 0x32CD32, 0xFF
         .start();
     }
   });
-  
+
+  // 啟動動畫循環以處理 TWEEN 動畫
+  startAnimationLoop();
+
   return colorParticles;
 }
 
@@ -1642,7 +1692,10 @@ function animateSparkleToCard(webglCard, cssCard, finalPosition, gridScale, dela
             .start();
         })
         .start();
-        
+
+      // 啟動動畫循環以處理 TWEEN 動畫
+      startAnimationLoop();
+
       // 光點脈動效果
       new TWEEN.Tween(sparkle.scale)
         .to({ x: 1.2, y: 1.2, z: 1.2 }, 300)
@@ -1985,9 +2038,9 @@ async function showCardShowerAnimation(winners) {
     
     // 隱藏載入動畫
     loadingOverlay.classList.remove('show');
-    
+
     // 手動啟動動畫循環
-    animate();
+    startAnimationLoop();
     
     // 創建 WebGL 卡牌（背景和效果）- 但不立即顯示
     cards = [];
