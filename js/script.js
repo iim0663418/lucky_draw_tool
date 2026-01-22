@@ -2040,7 +2040,7 @@ async function showCardShowerAnimation(winners) {
     loadingOverlay.classList.remove('show');
 
     // 手動啟動動畫循環
-    startAnimationLoop();
+    // startAnimationLoop(); // 移除：過早啟動會因無粒子而立即停止，讓爆炸效果自行啟動循環
     
     // 創建 WebGL 卡牌（背景和效果）- 但不立即顯示
     cards = [];
