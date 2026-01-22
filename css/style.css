@@ -966,6 +966,11 @@ body.dark .css-card .card-decoration {
   opacity: 0.6;
 }
 
+/* Dark Mode: History Card Text */
+body.dark .card-text {
+  color: var(--text-primary-dark);
+}
+
 body.dark .highlight-winner .card-body::after {
   content: '';
   position: absolute;
