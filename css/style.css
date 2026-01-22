@@ -22,9 +22,16 @@
   /* Accent Colors */
   --yellow: #FFD700;
   --yellow-dark: #E7C400;
-  --gold: #D4AF37;
-  --deep-red: #DC143C;
-  --dark-orange: #FF8C00;
+  
+  /* Luxury Dark Gold Theme */
+  --gold-bright: #FFD700;      /* 亮金 */
+  --gold: #D4AF37;             /* 古典金 */
+  --gold-dark: #B8941F;        /* 深金 */
+  --gold-bronze: #CD7F32;      /* 青銅金 */
+  --deep-red: #DC143C;         /* 深紅 */
+  --crimson: #8B0000;          /* 暗紅 */
+  --dark-orange: #FF8C00;      /* 深橙 */
+  --amber: #FFBF00;            /* 琥珀 */
 
   /* Semantic Colors */
   --success: #FFD700;
@@ -42,13 +49,13 @@
   --border-light: var(--gray-border-light);
 
   /* === Dark Mode Semantic Mapping === */
-  --bg-primary-dark: #1A1A1A;
-  --bg-surface-dark: #252525;
+  --bg-primary-dark: #0F0F0F;
+  --bg-surface-dark: #1A1A1A;
   --text-primary-dark: #F5F5F5;
   --text-secondary-dark: #C0C0C0;
   --brand-primary-dark: #D4AF37;
   --brand-accent-dark: #DC143C;
-  --border-dark: #3A3A3A;
+  --border-dark: #2A2A2A;
 
   /* === Legacy Compatibility (minimal) === */
   --accent-red: var(--error);
@@ -166,32 +173,39 @@ body.dark {
   --current-brand-primary: var(--brand-primary-dark);
   --current-brand-accent: var(--brand-accent-dark);
   --current-border: var(--border-dark);
-  --current-focus-border: var(--purple-light);
-  --current-focus-shadow: rgba(164, 164, 205, 0.25);
+  --current-focus-border: var(--gold);
+  --current-focus-shadow: rgba(212, 175, 55, 0.3);
+  
+  background: linear-gradient(180deg, #0F0F0F 0%, #1A1A1A 100%);
 }
 
 /* === Dark Mode Form Enhancements === */
 body.dark .form-control,
 body.dark .form-select {
-  background-color: var(--form-bg-dark);  /* Darker than card surface for inset effect */
-  border-color: var(--gray-border-dark);
-  border-width: 1.5px;  /* Slightly thicker for better visibility */
-  color: var(--white);  /* White text for visibility */
+  background-color: #1A1A1A;
+  border-color: #3A3A3A;
+  border-width: 1.5px;
+  color: var(--white);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 body.dark .form-control:focus,
 body.dark .form-select:focus {
   border-width: 2px;
-  background-color: #2A2A2A;  /* Slightly lighter on focus */
-  border-color: var(--current-focus-border);
-  box-shadow: 0 0 0 4px var(--current-focus-shadow);
+  background-color: #1F1F1F;
+  border-color: var(--gold);
+  box-shadow: 
+    0 0 0 4px rgba(212, 175, 55, 0.2),
+    inset 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 /* === Dark Mode Card Enhancements === */
 body.dark .card {
-  border-color: #4D5358;  /* More visible border */
-  background-color: var(--black-soft);
-  color: var(--white);  /* White text for card content */
+  border-color: #2A2A2A;
+  background: linear-gradient(135deg, #1A1A1A 0%, #1F1F1F 100%);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 body.dark .history-card {
@@ -204,6 +218,23 @@ body.dark .advanced-settings-card {
 
 body.dark .fadeInList li {
   border-color: #4D5358;
+}
+
+/* Dark Mode: Luxury Gold Header */
+body.dark .app-header {
+  background: linear-gradient(135deg, #1A1A1A 0%, #0F0F0F 100%);
+  border-bottom: 2px solid #D4AF37;
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.6),
+    0 0 40px rgba(212, 175, 55, 0.2);
+}
+
+body.dark .app-header h1 {
+  background: linear-gradient(135deg, #FFD700 0%, #D4AF37 50%, #B8941F 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 2px 8px rgba(255, 215, 0, 0.5));
 }
 
 .app-header {
@@ -392,20 +423,29 @@ body.dark .form-check-label {
 
 /* Dark Mode: Luxury Gold Theme */
 body.dark .btn-draw {
-  background: linear-gradient(135deg, #D4AF37 0%, #B8941F 100%);
+  background: linear-gradient(135deg, #D4AF37 0%, #B8941F 50%, #CD7F32 100%);
   border: 2px solid #D4AF37;
-  box-shadow: 0 8px 16px rgba(212, 175, 55, 0.4), 0 4px 8px rgba(0, 0, 0, 0.3);
+  box-shadow: 
+    0 8px 16px rgba(212, 175, 55, 0.4), 
+    0 4px 8px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 215, 0, 0.3);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
 }
 
 body.dark .btn-draw::before {
-  background: linear-gradient(135deg, #DC143C 0%, #FF8C00 100%);
+  background: linear-gradient(135deg, #DC143C 0%, #FF8C00 50%, #FFD700 100%);
 }
 
 body.dark .btn-draw:hover {
-  background: linear-gradient(135deg, #FFD700 0%, #D4AF37 100%);
+  background: linear-gradient(135deg, #FFD700 0%, #D4AF37 50%, #B8941F 100%);
   border-color: #FFD700;
-  box-shadow: 0 12px 32px rgba(255, 215, 0, 0.5), 0 6px 12px rgba(0, 0, 0, 0.4), 0 0 30px rgba(220, 20, 60, 0.6);
+  box-shadow: 
+    0 12px 32px rgba(255, 215, 0, 0.6), 
+    0 6px 12px rgba(0, 0, 0, 0.6), 
+    0 0 40px rgba(220, 20, 60, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
   transform: translateY(-3px) scale(1.05);
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.8), 0 2px 4px rgba(0, 0, 0, 0.9);
 }
 
 .btn-draw:active {
@@ -446,6 +486,24 @@ body.dark .btn-draw:hover {
   outline: 3px solid var(--current-brand-primary);
   outline-offset: 2px;
   box-shadow: 0 0 0 4px var(--current-focus-shadow);
+}
+
+/* Dark Mode: Secondary Button */
+body.dark .btn-secondary {
+  background: transparent;
+  border: 2px solid var(--gold);
+  color: var(--gold);
+  box-shadow: inset 0 0 20px rgba(212, 175, 55, 0.1);
+}
+
+body.dark .btn-secondary:hover {
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.2) 0%, rgba(255, 215, 0, 0.1) 100%);
+  border-color: var(--gold-bright);
+  color: var(--gold-bright);
+  box-shadow: 
+    0 6px 12px rgba(0, 0, 0, 0.4),
+    0 0 20px rgba(212, 175, 55, 0.4),
+    inset 0 0 30px rgba(212, 175, 55, 0.2);
 }
 
 /* === Danger Button - Red Gradient === */
@@ -605,9 +663,10 @@ body.dark .btn-draw:hover {
 }
 
 body.dark .alert-info {
-  background: rgba(164, 164, 205, 0.15);
-  border-left-color: var(--purple-light);
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.2) 0%, rgba(212, 175, 55, 0.1) 100%);
+  border-left: 4px solid var(--gold);
   color: var(--white);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 20px rgba(212, 175, 55, 0.2);
 }
 
 /* Alert Success - Yellow Theme */
@@ -618,9 +677,10 @@ body.dark .alert-info {
 }
 
 body.dark .alert-success {
-  background: rgba(255, 215, 0, 0.15);
-  border-left-color: var(--yellow);
+  background: linear-gradient(135deg, rgba(255, 215, 0, 0.25) 0%, rgba(255, 191, 0, 0.15) 100%);
+  border-left: 4px solid var(--gold-bright);
   color: var(--white);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 215, 0, 0.3);
 }
 
 /* Alert Warning - Orange Theme */
@@ -631,9 +691,10 @@ body.dark .alert-success {
 }
 
 body.dark .alert-warning {
-  background: rgba(255, 152, 0, 0.15);
-  border-left-color: var(--warning);
+  background: linear-gradient(135deg, rgba(255, 140, 0, 0.25) 0%, rgba(220, 20, 60, 0.15) 100%);
+  border-left: 4px solid var(--dark-orange);
   color: var(--white);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 20px rgba(255, 140, 0, 0.3);
 }
 
 /* Alert Danger - Red Theme */
@@ -644,9 +705,10 @@ body.dark .alert-warning {
 }
 
 body.dark .alert-danger {
-  background: rgba(220, 53, 69, 0.15);
-  border-left-color: var(--error);
+  background: linear-gradient(135deg, rgba(220, 20, 60, 0.25) 0%, rgba(139, 0, 0, 0.15) 100%);
+  border-left: 4px solid var(--deep-red);
   color: var(--white);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 20px rgba(220, 20, 60, 0.3);
 }
 
 /* Alert Dismissible */
@@ -868,21 +930,51 @@ a:visited {
 /* Simplified border pulse - single color, cleaner effect */
 /* Dark Mode: Luxury Gold Winner Cards */
 body.dark .highlight-winner .card-body {
-  background: linear-gradient(135deg, rgba(212, 175, 55, 0.15) 0%, rgba(220, 20, 60, 0.1) 100%);
+  background: 
+    linear-gradient(135deg, rgba(212, 175, 55, 0.2) 0%, rgba(139, 0, 0, 0.15) 100%),
+    radial-gradient(circle at top right, rgba(255, 215, 0, 0.1), transparent 70%);
   border: 3px solid #D4AF37;
   box-shadow:
-    0 8px 16px rgba(0, 0, 0, 0.4),
+    0 8px 24px rgba(0, 0, 0, 0.6),
     0 0 0 1px #D4AF37,
-    0 0 30px rgba(212, 175, 55, 0.5);
+    0 0 40px rgba(212, 175, 55, 0.6),
+    inset 0 1px 0 rgba(255, 215, 0, 0.2);
 }
 
 body.dark .highlight-winner .card-title {
   color: #FFD700;
-  text-shadow: 0 0 10px rgba(255, 215, 0, 0.6), 0 2px 4px rgba(0, 0, 0, 0.5);
+  text-shadow: 
+    0 0 15px rgba(255, 215, 0, 0.8), 
+    0 0 30px rgba(255, 215, 0, 0.4),
+    0 2px 4px rgba(0, 0, 0, 0.8);
+  filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.6));
 }
 
 body.dark .highlight-winner .card-text {
-  color: #FF8C00;
+  color: #FFBF00;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+body.dark .highlight-winner .card-body::after {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    45deg,
+    transparent 30%,
+    rgba(255, 215, 0, 0.1) 50%,
+    transparent 70%
+  );
+  animation: shimmer 3s infinite;
+  pointer-events: none;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+  100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
 }
 
 @keyframes pulseWinnerBorder {
