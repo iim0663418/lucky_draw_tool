@@ -2146,12 +2146,27 @@ function renderHistoryPage(list, page) {
     container.innerHTML = '<div class="alert alert-info">尚無此品項抽獎紀錄。</div>';
   } else {
     pageItems.forEach(record => {
+      // Format timestamp for display
+      let formattedDate = record.date;
+      if (record.timestamp) {
+        const date = new Date(record.timestamp);
+        formattedDate = date.toLocaleString('zh-TW', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }).replace(/\//g, '-');
+      }
+
       const card = document.createElement('div');
       card.className = 'card history-card';
       card.innerHTML = `
         <div class="card-body">
           <h5 class="card-title">品項：${record.prize}</h5>
-          <h6 class="card-subtitle mb-2 text-muted">時間：${record.date}</h6>
+          <h6 class="card-subtitle mb-2 text-muted">時間：${formattedDate}</h6>
           <p class="card-text">中獎者：${record.winners.join('、')}</p>
           <p class="card-text"><small class="text-secondary">亂數種子：${record.seed}</small></p>
           <p class="card-text"><small class="text-secondary">允許重複：${record.allowRepeat ? '是' : '否'}</small></p>
@@ -2207,6 +2222,37 @@ function updateHistoryDisplay() {
   const selectedPrize = document.getElementById('prizeFilter').value;
   const filtered = getFilteredList(selectedPrize);
   renderHistoryPage(filtered, currentPage);
+}
+
+function exportHistory() {
+  // Check if history is empty
+  if (historyList.length === 0) {
+    alert('目前沒有抽獎紀錄可匯出');
+    return;
+  }
+
+  // Prepare export data with metadata
+  const data = {
+    exportDate: new Date().toISOString(),
+    version: "1.0",
+    totalDraws: historyList.length,
+    history: historyList
+  };
+
+  // Create JSON blob
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: 'application/json'
+  });
+
+  // Create download link
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `lottery_results_${Date.now()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function updateParticipantCount(count) {
@@ -2360,6 +2406,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     updateHistoryDisplay();
   });
 
+  // Export history button event listener
+  const exportBtn = document.getElementById('exportHistory');
+  if (exportBtn) {
+    exportBtn.addEventListener('click', exportHistory);
+  }
+
+  // Removed: Old confirm() dialog handler - conflicts with Bootstrap modal in HTML
+  // The modal is now handled by inline script in index.html with data-bs-dismiss="modal"
+  /*
   document.getElementById('clearHistory').addEventListener('click', () => {
     if (confirm('確定要清除所有歷史紀錄嗎？')) {
       historyList = [];
@@ -2369,6 +2424,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       updateHistoryDisplay();
     }
   });
+  */
 
   document.getElementById('allowRepeatCheckbox').addEventListener('change', handleAllowRepeatToggle);
 
@@ -2558,6 +2614,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       prize: prizeInput,
       seed: seed,
       date: nowStr,
+      timestamp: new Date().toISOString(),
       winners: winners,
       allowRepeat: allowRepeat
     };

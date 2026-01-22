@@ -23,35 +23,53 @@
         <h2 class="section-title mb-3">抽獎設定</h2>
         <div class="row">
           <div class="col-lg-4 mb-3">
-            <label for="nameList" class="form-label">參與者清單（每行一位）：</label>
-            <textarea class="form-control" id="nameList" rows="8" placeholder="輸入參與者名單..."></textarea>
-            <p id="participantCount" class="mt-2 text-muted small">目前參與者 0 人</p>
+            <label for="nameList" class="form-label">
+              參與者清單 <span id="participantCount" class="text-muted">(0 人)</span>
+            </label>
+            <textarea class="form-control" id="nameList" rows="8" placeholder="王小明&#10;李小華&#10;張小美"></textarea>
           </div>
           <div class="col-lg-8">
             <div class="row">
               <div class="col-md-6 mb-3">
-                <label for="prizeInput" class="form-label">抽獎品項：</label>
+                <label for="prizeInput" class="form-label">抽獎品項</label>
                 <input type="text" class="form-control" id="prizeInput" placeholder="例如：頭獎 - Switch" />
               </div>
               <div class="col-md-6 mb-3">
-                <label for="seedInput" class="form-label">幸運種子（可留空）：</label>
-                <input type="text" class="form-control" id="seedInput" placeholder="例如：luckyday2025" />
-              </div>
-              <div class="col-md-6 mb-3">
-                <label for="winnerCount" class="form-label">得獎人數：</label>
+                <label for="winnerCount" class="form-label">得獎人數</label>
                 <input type="number" class="form-control" id="winnerCount" value="1" min="1" placeholder="輸入數字" />
               </div>
-              <div class="col-md-6 mb-3 align-self-center">
-                <div class="form-check mt-3">
-                  <input class="form-check-input" type="checkbox" id="allowRepeatCheckbox">
-                  <label class="form-check-label" for="allowRepeatCheckbox">允許重複中獎</label>
+              <div class="col-12 mb-3">
+                <button class="btn btn-link p-0 text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#advancedSettings" aria-expanded="false" aria-controls="advancedSettings">
+                  <span class="advanced-toggle">▶ 進階設定</span>
+                </button>
+                <div class="collapse mt-2" id="advancedSettings">
+                  <div class="card card-body advanced-settings-card">
+                    <div class="row">
+                      <div class="col-md-6 mb-3">
+                        <label for="seedInput" class="form-label">
+                          幸運種子
+                          <span class="tooltip-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="用於生成可重現結果的種子值，留空則隨機">ⓘ</span>
+                        </label>
+                        <input type="text" class="form-control" id="seedInput" placeholder="例如：luckyday2025" />
+                      </div>
+                      <div class="col-md-6 mb-3 d-flex align-items-center">
+                        <div class="form-check">
+                          <input class="form-check-input" type="checkbox" id="allowRepeatCheckbox">
+                          <label class="form-check-label" for="allowRepeatCheckbox">
+                            允許重複中獎
+                            <span class="tooltip-icon" data-bs-toggle="tooltip" data-bs-placement="top" title="不勾選時，中獎者將從名單移除">ⓘ</span>
+                          </label>
+                        </div>
+                        <small id="repeatHelp" class="form-text text-muted" style="display:none;">不勾選時，中獎者將從名單移除。</small>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <small id="repeatHelp" class="form-text text-muted">不勾選時，中獎者將從名單移除。</small>
               </div>
             </div>
           </div>
         </div>
-        <div class="text-center mt-3">
+        <div class="text-center mt-4">
           <button id="drawButton" class="btn btn-draw btn-lg px-5">開始抽獎</button>
         </div>
       </div>
@@ -78,13 +96,14 @@
         <h2 class="section-title mb-3">抽獎歷史紀錄</h2>
         <div class="row mb-3 align-items-end">
           <div class="col-md-5 mb-2 mb-md-0">
-            <label for="prizeFilter" class="form-label">依品項篩選：</label>
+            <label for="prizeFilter" class="form-label">依品項篩選</label>
             <select id="prizeFilter" class="form-select">
               <option value="全部">顯示全部品項</option>
             </select>
           </div>
           <div class="col-md-7 text-md-end">
-            <button id="clearHistory" class="btn btn-clear-history">🗑️ 清除全部紀錄</button>
+            <button id="exportHistory" class="btn btn-secondary me-2">💾 匯出紀錄</button>
+            <button id="clearHistory" class="btn btn-clear-history" data-bs-toggle="modal" data-bs-target="#clearHistoryModal">🗑️ 清除全部紀錄</button>
           </div>
         </div>
         <div id="historyContainer"></div>
@@ -95,8 +114,27 @@
     </section>
   </main>
   <footer class="app-footer text-center py-3 mt-4">
-    <p class="mb-0 small">&copy; <span id="currentYear"></span> moda 幸運抽獎. All rights reserved.</p>
+    <p class="mb-0">&copy; <span id="currentYear"></span> moda 幸運抽獎工具</p>
   </footer>
+
+  <!-- Clear History Confirmation Modal -->
+  <div class="modal fade" id="clearHistoryModal" tabindex="-1" aria-labelledby="clearHistoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header border-0">
+          <h5 class="modal-title" id="clearHistoryModalLabel">⚠️ 確認清除紀錄</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-0">此操作無法復原，確定要清除所有歷史記錄嗎？</p>
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-danger" id="confirmClearHistory" data-bs-dismiss="modal">確定清除</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Overlay for countdown -->
   <div id="overlay" class="overlay">
@@ -119,8 +157,93 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tween.js/18.6.4/tween.umd.js"></script>
   <!-- 引入 CSS3D 渲染器 - 使用穩定的 unpkg CDN -->
   <script src="https://unpkg.com/three@0.128.0/examples/js/renderers/CSS3DRenderer.js"></script>
-  <script src="js/script.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Initialize Bootstrap tooltips and UI enhancements - MUST RUN BEFORE script.js
+    (function() {
+      // Store the original confirm function
+      const originalConfirm = window.confirm;
+
+      // Override confirm globally (will be called by script.js)
+      window.confirm = function(message) {
+        // If this is the clear history confirmation
+        if (message && message.includes('清除') && message.includes('歷史紀錄')) {
+          // Show Bootstrap modal instead
+          const modal = new bootstrap.Modal(document.getElementById('clearHistoryModal'));
+          modal.show();
+          // Return false to prevent the original action
+          return false;
+        }
+        // For other confirmations, use the original
+        return originalConfirm.call(window, message);
+      };
+
+      // Intercept participantCount updates to use new format
+      const originalGetElementById = document.getElementById.bind(document);
+      document.getElementById = function(id) {
+        const element = originalGetElementById(id);
+        if (id === 'participantCount' && element) {
+          // Create a proxy to intercept textContent changes
+          const originalTextContentDescriptor = Object.getOwnPropertyDescriptor(Node.prototype, 'textContent');
+          // Safety check: ensure descriptor exists
+          if (originalTextContentDescriptor && originalTextContentDescriptor.set) {
+            Object.defineProperty(element, 'textContent', {
+              get: function() {
+                return originalTextContentDescriptor.get.call(this);
+              },
+              set: function(value) {
+                // Intercept "目前參與者 X 人" format and convert to "(X 人)"
+                const match = value.match(/目前參與者\s*(\d+)\s*人/);
+                if (match) {
+                  originalTextContentDescriptor.set.call(this, '(' + match[1] + ' 人)');
+                } else {
+                  originalTextContentDescriptor.set.call(this, value);
+                }
+              },
+              configurable: true
+            });
+          }
+        }
+        return element;
+      };
+
+      document.addEventListener('DOMContentLoaded', function() {
+        // Initialize tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+          return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+
+        // Handle advanced settings toggle icon
+        const advancedToggle = document.querySelector('.advanced-toggle');
+        const advancedSettings = document.getElementById('advancedSettings');
+        if (advancedSettings && advancedToggle) {
+          advancedSettings.addEventListener('show.bs.collapse', function() {
+            advancedToggle.textContent = '▼ 進階設定';
+          });
+          advancedSettings.addEventListener('hide.bs.collapse', function() {
+            advancedToggle.textContent = '▶ 進階設定';
+          });
+        }
+
+        // When user confirms in modal, execute the clear action
+        const confirmClearBtn = document.getElementById('confirmClearHistory');
+        if (confirmClearBtn) {
+          confirmClearBtn.addEventListener('click', function() {
+            // Manually execute the clear history action
+            if (typeof historyList !== 'undefined') {
+              historyList = [];
+              if (typeof saveHistory === 'function') saveHistory();
+              if (typeof populatePrizeOptions === 'function') populatePrizeOptions();
+              if (typeof currentPage !== 'undefined') currentPage = 1;
+              if (typeof updateHistoryDisplay === 'function') updateHistoryDisplay();
+            }
+          });
+        }
+      });
+    })();
+  </script>
+  <script src="js/script.js"></script>
 
   <!-- Theme toggle button -->
   <button id="themeToggle" class="theme-toggle-button" aria-label="切換色彩模式">
