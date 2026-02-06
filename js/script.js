@@ -13,6 +13,247 @@ let preloadedTextures = {}; // 預載入的材質快取
 // 抽獎狀態管理
 let isDrawing = false;
 
+// === Gift Queue Management ===
+let giftQueue = {
+  active: false,
+  created: null,
+  prizes: []
+};
+
+// Load gift queue from localStorage
+function loadGiftQueue() {
+  const stored = localStorage.getItem('giftQueue');
+  if (stored) {
+    try {
+      giftQueue = JSON.parse(stored);
+    } catch {
+      giftQueue = { active: false, created: null, prizes: [] };
+    }
+  }
+}
+
+// Save gift queue to localStorage
+function saveGiftQueue() {
+  localStorage.setItem('giftQueue', JSON.stringify(giftQueue));
+}
+
+// Get next prize that needs to be drawn (drawn < total)
+function getNextPrize() {
+  if (!giftQueue.active) return null;
+
+  for (let prize of giftQueue.prizes) {
+    if (prize.drawn < prize.total) {
+      prize.status = 'active';
+      return prize;
+    }
+  }
+
+  return null; // All prizes completed
+}
+
+// Increment drawn count for a prize
+function incrementPrizeDrawn(prizeId, count = 1) {
+  if (!giftQueue.active) return;
+
+  const prize = giftQueue.prizes.find(p => p.id === prizeId);
+  if (!prize) return;
+
+  prize.drawn += count;
+
+  // Ensure drawn doesn't exceed total
+  if (prize.drawn > prize.total) {
+    prize.drawn = prize.total;
+  }
+
+  if (prize.drawn >= prize.total) {
+    prize.status = 'completed';
+  }
+
+  saveGiftQueue();
+  updateQueueStatusUI();
+}
+
+// Update Queue Status Card UI
+function updateQueueStatusUI() {
+  const queueCard = document.getElementById('queueStatusCard');
+  const prizeInput = document.getElementById('prizeInput');
+
+  if (!giftQueue.active || giftQueue.prizes.length === 0) {
+    queueCard.style.display = 'none';
+    prizeInput.disabled = false;
+    prizeInput.value = '';
+    return;
+  }
+
+  queueCard.style.display = 'block';
+
+  // Calculate total progress
+  const totalPrizes = giftQueue.prizes.reduce((sum, p) => sum + p.total, 0);
+  const totalDrawn = giftQueue.prizes.reduce((sum, p) => sum + p.drawn, 0);
+  const progressPercent = totalPrizes > 0 ? Math.round((totalDrawn / totalPrizes) * 100) : 0;
+
+  document.getElementById('totalProgress').textContent = `${totalDrawn}/${totalPrizes}`;
+
+  // Update progress bar
+  const progressBar = document.getElementById('queueProgressBar');
+  progressBar.style.width = progressPercent + '%';
+  progressBar.textContent = progressPercent + '%';
+  progressBar.setAttribute('aria-valuenow', progressPercent);
+
+  // Get current prize
+  const currentPrize = getNextPrize();
+  if (currentPrize) {
+    document.getElementById('currentPrizeName').textContent = currentPrize.name;
+    prizeInput.value = currentPrize.name;
+    prizeInput.disabled = true;
+  } else {
+    // All prizes completed
+    document.getElementById('currentPrizeName').textContent = '已完成';
+    prizeInput.disabled = false;
+  }
+
+  // Update prize list
+  const prizeList = document.getElementById('queuePrizeList');
+  prizeList.innerHTML = '';
+
+  giftQueue.prizes.forEach(prize => {
+    const li = document.createElement('li');
+
+    let statusIcon = '';
+    let statusClass = '';
+    if (prize.status === 'completed') {
+      statusIcon = '✓';
+      statusClass = 'queue-status-completed';
+    } else if (prize.status === 'active') {
+      statusIcon = '⏳';
+      statusClass = 'queue-status-active';
+    } else {
+      statusIcon = '○';
+      statusClass = 'queue-status-pending';
+    }
+
+    li.innerHTML = `
+      <div class="d-flex align-items-center">
+        <span class="queue-status-icon ${statusClass}">${statusIcon}</span>
+        <span class="queue-prize-name">${prize.name}</span>
+      </div>
+      <span class="queue-prize-progress">${prize.drawn}/${prize.total}</span>
+    `;
+
+    prizeList.appendChild(li);
+  });
+}
+
+// Reset queue
+function resetGiftQueue() {
+  giftQueue = { active: false, created: null, prizes: [] };
+  saveGiftQueue();
+  updateQueueStatusUI();
+}
+
+// Initialize Queue Manager Modal
+function initQueueManagerModal() {
+  const container = document.getElementById('queueInputsContainer');
+
+  // Add initial 3 prize rows
+  for (let i = 0; i < 3; i++) {
+    addPrizeRow();
+  }
+}
+
+// Add a prize row to the modal
+function addPrizeRow(name = '', total = 1) {
+  const container = document.getElementById('queueInputsContainer');
+  const row = document.createElement('div');
+  row.className = 'queue-prize-row';
+
+  row.innerHTML = `
+    <input type="text" class="form-control queue-prize-name-input" placeholder="獎項名稱（例如：頭獎）" value="${name}" aria-label="獎項名稱" />
+    <input type="number" class="form-control queue-prize-total-input" min="1" value="${total}" aria-label="數量" />
+    <button type="button" class="btn btn-remove-prize" aria-label="刪除此獎項">✕</button>
+  `;
+
+  // Remove button handler
+  row.querySelector('.btn-remove-prize').addEventListener('click', function() {
+    if (container.children.length > 1) {
+      row.remove();
+    } else {
+      showAlert('至少需要一個獎項', 'warning');
+    }
+  });
+
+  container.appendChild(row);
+}
+
+// Validate and activate queue
+function activateGiftQueue() {
+  const container = document.getElementById('queueInputsContainer');
+  const rows = container.querySelectorAll('.queue-prize-row');
+  const validationMsg = document.getElementById('queueValidationMessage');
+
+  const prizes = [];
+  let hasError = false;
+
+  rows.forEach((row, index) => {
+    const nameInput = row.querySelector('.queue-prize-name-input');
+    const totalInput = row.querySelector('.queue-prize-total-input');
+
+    const name = nameInput.value.trim();
+    const total = parseInt(totalInput.value);
+
+    if (!name) {
+      validationMsg.textContent = `第 ${index + 1} 個獎項名稱不可為空白`;
+      validationMsg.style.display = 'block';
+      hasError = true;
+      return;
+    }
+
+    if (!total || total < 1) {
+      validationMsg.textContent = `第 ${index + 1} 個獎項數量必須 ≥ 1`;
+      validationMsg.style.display = 'block';
+      hasError = true;
+      return;
+    }
+
+    prizes.push({
+      id: 'p' + (index + 1),
+      name: name,
+      total: total,
+      drawn: 0,
+      status: 'pending'
+    });
+  });
+
+  if (hasError || prizes.length === 0) {
+    if (!hasError) {
+      validationMsg.textContent = '請至少新增一個獎項';
+      validationMsg.style.display = 'block';
+    }
+    return false;
+  }
+
+  // Activate queue
+  giftQueue = {
+    active: true,
+    created: new Date().toISOString(),
+    prizes: prizes
+  };
+
+  saveGiftQueue();
+  updateQueueStatusUI();
+
+  // Hide validation message
+  validationMsg.style.display = 'none';
+
+  // Close modal
+  const modal = bootstrap.Modal.getInstance(document.getElementById('queueManagerModal'));
+  if (modal) modal.hide();
+
+  showAlert('✅ 禮物佇列已啟用！', 'success');
+
+  return true;
+}
+
 // === Phase 3: 錯誤處理函數 ===
 function showAlert(message, type = 'danger') {
   const alertDiv = document.createElement('div');
@@ -2406,7 +2647,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   populatePrizeOptions();
   updateHistoryDisplay();
   initializeTheme(); // Call theme initialization
-  
+
+  // === Gift Queue Initialization ===
+  loadGiftQueue();
+  updateQueueStatusUI();
+  initQueueManagerModal();
+
   // 立即開始預載入 3D 資源
   preloadResources();
   
@@ -2463,6 +2709,34 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderRemainingList(initialParticipants);
   }
 
+  // === Gift Queue Event Listeners ===
+
+  // Add prize row button
+  document.getElementById('addPrizeRowButton').addEventListener('click', () => {
+    addPrizeRow();
+  });
+
+  // Activate queue button
+  document.getElementById('activateQueueButton').addEventListener('click', () => {
+    activateGiftQueue();
+  });
+
+  // Reset queue button
+  document.getElementById('resetQueueButton').addEventListener('click', () => {
+    if (confirm('確定要重置禮物佇列嗎？這將清除所有佇列資料。')) {
+      resetGiftQueue();
+      showAlert('佇列已重置', 'info');
+    }
+  });
+
+  // Queue details toggle icon
+  document.getElementById('queueDetails').addEventListener('show.bs.collapse', function() {
+    document.getElementById('queueToggleIcon').textContent = '收起詳情 ▲';
+  });
+
+  document.getElementById('queueDetails').addEventListener('hide.bs.collapse', function() {
+    document.getElementById('queueToggleIcon').textContent = '查看詳情 ▼';
+  });
 
   document.getElementById('drawButton').addEventListener('click', async function () {
     // 防呆機制：檢查是否正在抽獎
@@ -2483,14 +2757,36 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
       // 清理之前的 3D 場景和卡片，避免重複抽獎時出現殘留
       cleanupThreeScene();
-      
+
       // 清理之前的中獎者顯示區域
       const winnersContainer = document.getElementById('winnersContainer');
       winnersContainer.innerHTML = '';
-      
+
+      // === Gift Queue Integration: Check if queue is active ===
+      let currentQueuePrize = null;
+      if (giftQueue.active) {
+        currentQueuePrize = getNextPrize();
+
+        if (!currentQueuePrize) {
+          // All prizes in queue have been drawn
+          showAlert('🎉 所有獎項已抽完！', 'success');
+          isDrawing = false;
+          drawButton.disabled = false;
+          drawButton.textContent = '開始抽獎';
+          return;
+        }
+      }
+
       const textarea = document.getElementById('nameList');
     const seedInput = document.getElementById('seedInput').value.trim();
-    const prizeInput = document.getElementById('prizeInput').value.trim() || '未命名品項';
+    let prizeInput = document.getElementById('prizeInput').value.trim() || '未命名品項';
+
+    // If queue is active, use current prize name and lock input
+    if (currentQueuePrize) {
+      prizeInput = currentQueuePrize.name;
+      document.getElementById('prizeInput').value = prizeInput;
+      document.getElementById('prizeInput').disabled = true;
+    }
     const countInput = document.getElementById('winnerCount').value.trim();
     const allowRepeat = document.getElementById('allowRepeatCheckbox').checked;
     const seedDisplayBlock = document.getElementById('seedDisplayBlock');
@@ -2644,6 +2940,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       saveHistory();
       populatePrizeOptions();
       updateHistoryDisplay();
+
+      // === Gift Queue Integration: Update drawn count ===
+      if (currentQueuePrize) {
+        // Increment drawn count by the number of winners
+        incrementPrizeDrawn(currentQueuePrize.id, winners.length);
+      }
       
     } catch (error) {
       console.error('抽獎過程發生錯誤:', error);

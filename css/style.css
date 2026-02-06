@@ -1362,6 +1362,184 @@ body.dark .tap-hint:hover {
   box-shadow: 0 6px 25px rgba(255, 215, 0, 0.7);
 }
 
+/* === Gift Queue Styles === */
+
+/* Queue Status Card */
+#queueStatusCard {
+  border-left: 4px solid var(--current-brand-primary);
+  background: linear-gradient(135deg, var(--current-bg-surface) 0%, var(--current-bg-primary) 100%);
+}
+
+body.dark #queueStatusCard {
+  border-left-color: var(--gold);
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.1) 0%, #1A1A1A 100%);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 20px rgba(212, 175, 55, 0.2);
+}
+
+#queueStatusCard h6 {
+  color: var(--current-text-primary);
+  font-size: var(--text-base);
+  margin: 0;
+}
+
+#queueStatusCard .text-primary {
+  color: var(--current-brand-primary) !important;
+}
+
+body.dark #queueStatusCard .text-primary {
+  color: var(--gold-bright) !important;
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+/* Queue Toggle Button */
+#queueToggleIcon {
+  font-size: var(--text-sm);
+  color: var(--current-brand-primary);
+  transition: transform var(--transition-base);
+}
+
+#queueDetails.show ~ button #queueToggleIcon {
+  transform: rotate(180deg);
+}
+
+/* Queue Progress Bar */
+#queueProgressBar {
+  background: linear-gradient(135deg, var(--purple) 0%, var(--purple-dark) 100%);
+  color: var(--white);
+  font-weight: 500;
+  font-size: var(--text-sm);
+  transition: width var(--transition-slow) ease-in-out;
+}
+
+body.dark #queueProgressBar {
+  background: linear-gradient(135deg, #D4AF37 0%, #B8941F 100%);
+  box-shadow: 0 0 10px rgba(212, 175, 55, 0.6);
+}
+
+/* Queue Prize List */
+#queuePrizeList li {
+  padding: var(--space-2);
+  margin-bottom: var(--space-1);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--current-border);
+  background-color: var(--current-bg-surface);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: all var(--transition-base);
+}
+
+#queuePrizeList li:hover {
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+body.dark #queuePrizeList li {
+  border-color: #3A3A3A;
+  background-color: #1F1F1F;
+}
+
+/* Queue Status Icons */
+.queue-status-icon {
+  font-size: var(--text-lg);
+  margin-right: var(--space-2);
+  min-width: 24px;
+  text-align: center;
+}
+
+.queue-status-pending {
+  color: var(--gray-light);
+}
+
+.queue-status-active {
+  color: var(--warning);
+  animation: pulse-icon 2s infinite;
+}
+
+.queue-status-completed {
+  color: var(--success);
+}
+
+body.dark .queue-status-active {
+  color: var(--gold-bright);
+  text-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
+}
+
+body.dark .queue-status-completed {
+  color: var(--gold);
+}
+
+@keyframes pulse-icon {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+/* Queue Prize Name */
+.queue-prize-name {
+  flex: 1;
+  font-weight: 500;
+  color: var(--current-text-primary);
+}
+
+.queue-prize-progress {
+  font-size: var(--text-sm);
+  color: var(--current-text-secondary);
+  font-weight: 400;
+}
+
+body.dark .queue-prize-name {
+  color: var(--white);
+}
+
+/* Queue Manager Modal */
+#queueManagerModal .modal-lg {
+  max-width: 700px;
+}
+
+.queue-prize-row {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+  align-items: center;
+}
+
+.queue-prize-row input {
+  flex: 1;
+  min-height: 44px;
+}
+
+.queue-prize-row input[type="number"] {
+  max-width: 120px;
+}
+
+.queue-prize-row .btn-remove-prize {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  color: var(--error);
+  border: 1px solid var(--error);
+  background: transparent;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-base);
+}
+
+.queue-prize-row .btn-remove-prize:hover {
+  background-color: var(--error);
+  color: var(--white);
+}
+
+/* Queue Validation Message */
+#queueValidationMessage {
+  font-size: var(--text-sm);
+  padding: var(--space-2);
+}
+
 /* === 卡片動畫增強效果 === */
 
 /* 金色光暈脈動動畫 */

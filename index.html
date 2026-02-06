@@ -40,6 +40,30 @@
     <section class="setup-section card shadow-sm mb-4">
       <div class="card-body">
         <h2 class="section-title mb-3">抽獎設定</h2>
+        <!-- Gift Queue Status Card (Hidden by default, shown when queue is active) -->
+        <div id="queueStatusCard" class="card mb-3" style="display:none;">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div>
+                <h6 class="mb-1">當前獎項：<span id="currentPrizeName" class="text-primary fw-bold">-</span></h6>
+                <small class="text-muted">總進度：<span id="totalProgress">0/0</span></small>
+              </div>
+              <button class="btn btn-link p-0" type="button" data-bs-toggle="collapse" data-bs-target="#queueDetails" aria-expanded="false" aria-controls="queueDetails">
+                <span id="queueToggleIcon">查看詳情 ▼</span>
+              </button>
+            </div>
+            <div class="collapse" id="queueDetails">
+              <div class="progress mb-3" style="height: 20px;" role="progressbar" aria-label="整體抽獎進度">
+                <div id="queueProgressBar" class="progress-bar" style="width: 0%">0%</div>
+              </div>
+              <ul id="queuePrizeList" class="list-unstyled mb-0"></ul>
+            </div>
+            <div class="mt-2 text-end">
+              <button id="resetQueueButton" class="btn btn-sm btn-warning">重置佇列</button>
+            </div>
+          </div>
+        </div>
+
         <div class="row">
           <div class="col-lg-4 mb-3">
             <label for="nameList" class="form-label">
@@ -50,7 +74,12 @@
           <div class="col-lg-8">
             <div class="row">
               <div class="col-md-6 mb-3">
-                <label for="prizeInput" class="form-label">抽獎品項</label>
+                <label for="prizeInput" class="form-label">
+                  抽獎品項
+                  <button id="manageQueueButton" class="btn btn-link btn-sm p-0 ms-2 text-decoration-none" type="button" data-bs-toggle="modal" data-bs-target="#queueManagerModal">
+                    📦 管理禮物佇列
+                  </button>
+                </label>
                 <input type="text" class="form-control" id="prizeInput" placeholder="例如：頭獎 - Switch" />
               </div>
               <div class="col-md-6 mb-3">
@@ -150,6 +179,32 @@
         <div class="modal-footer border-0">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
           <button type="button" class="btn btn-danger" id="confirmClearHistory" data-bs-dismiss="modal">確定清除</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Queue Manager Modal -->
+  <div class="modal fade" id="queueManagerModal" tabindex="-1" aria-labelledby="queueManagerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header border-0">
+          <h5 class="modal-title" id="queueManagerModalLabel">📦 禮物佇列管理</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="關閉"></button>
+        </div>
+        <div class="modal-body">
+          <p class="text-muted mb-3">設定一次後可連續抽獎，直到所有獎項抽完</p>
+          <div id="queueInputsContainer">
+            <!-- Dynamic prize inputs will be added here -->
+          </div>
+          <button id="addPrizeRowButton" class="btn btn-sm btn-secondary mt-2" type="button">
+            ➕ 新增獎項
+          </button>
+          <div id="queueValidationMessage" class="alert alert-danger mt-3" style="display:none;" role="alert"></div>
+        </div>
+        <div class="modal-footer border-0">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="button" class="btn btn-draw" id="activateQueueButton">啟用佇列</button>
         </div>
       </div>
     </div>
