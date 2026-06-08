@@ -716,6 +716,39 @@ body.dark .modal-content {
   transform: scale(1.05);
 }
 
+/* === Music Toggle === */
+.music-toggle-button {
+  position: fixed;
+  bottom: 76px;
+  right: 20px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  font-size: var(--text-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+  z-index: 1000;
+  transition: all var(--transition-base);
+  opacity: 0.7;
+}
+
+.music-toggle-button:hover {
+  box-shadow: var(--shadow-lg);
+  transform: scale(1.05);
+  opacity: 1;
+}
+
+.music-toggle-button.playing {
+  opacity: 1;
+  border-color: var(--accent);
+}
+
 /* === Queue Styles === */
 #queueStatusCard {
   border-left: 3px solid var(--primary);

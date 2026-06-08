@@ -293,6 +293,25 @@
           return new bootstrap.Tooltip(tooltipTriggerEl);
         });
 
+        // Music toggle
+        var musicBtn = document.getElementById('musicToggle');
+        var bgAudio = document.getElementById('bgMusic');
+        if (musicBtn && bgAudio) {
+          bgAudio.volume = 0.3;
+          musicBtn.addEventListener('click', function() {
+            if (bgAudio.paused) {
+              bgAudio.play().then(function() {
+                musicBtn.classList.add('playing');
+                musicBtn.textContent = '🔊';
+              }).catch(function(e) { console.warn('Audio play failed:', e); });
+            } else {
+              bgAudio.pause();
+              musicBtn.classList.remove('playing');
+              musicBtn.textContent = '🎵';
+            }
+          });
+        }
+
         // Handle advanced settings toggle icon
         const advancedToggle = document.querySelector('.advanced-toggle');
         const advancedSettings = document.getElementById('advancedSettings');
@@ -324,10 +343,18 @@
   </script>
   <script src="js/script.js"></script>
 
+  <!-- Background Music -->
+  <audio id="bgMusic" loop preload="none">
+    <source src="audio/bgm.mp3" type="audio/mpeg">
+  </audio>
+
   <!-- Theme toggle button -->
   <button id="themeToggle" class="theme-toggle-button" aria-label="切換色彩模式">
     <span class="theme-icon-light">☀️</span>
     <span class="theme-icon-dark" style="display:none;">🌙</span>
   </button>
+
+  <!-- Music toggle button -->
+  <button id="musicToggle" class="music-toggle-button" aria-label="切換背景音樂">🎵</button>
 </body>
 </html>
