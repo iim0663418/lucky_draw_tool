@@ -13,6 +13,20 @@ let preloadedTextures = {}; // 預載入的材質快取
 // 抽獎狀態管理
 let isDrawing = false;
 
+// === Security: HTML Escape ===
+function escapeHTML(str) {
+  if (typeof str !== 'string') return String(str);
+  const div = document.createElement('div');
+  div.appendChild(document.createTextNode(str));
+  return div.innerHTML;
+}
+
+// === Utility: Parse participants from textarea ===
+function getParticipants() {
+  return document.getElementById('nameList').value
+    .split('\n').map(n => n.trim()).filter(n => n !== '');
+}
+
 // === Gift Queue Management ===
 let giftQueue = {
   active: false,
@@ -25,7 +39,12 @@ function loadGiftQueue() {
   const stored = localStorage.getItem('giftQueue');
   if (stored) {
     try {
-      giftQueue = JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      if (parsed && typeof parsed.active === 'boolean' && Array.isArray(parsed.prizes)) {
+        giftQueue = parsed;
+      } else {
+        giftQueue = { active: false, created: null, prizes: [] };
+      }
     } catch {
       giftQueue = { active: false, created: null, prizes: [] };
     }
@@ -135,9 +154,9 @@ function updateQueueStatusUI() {
     li.innerHTML = `
       <div class="d-flex align-items-center">
         <span class="queue-status-icon ${statusClass}">${statusIcon}</span>
-        <span class="queue-prize-name">${prize.name}</span>
+        <span class="queue-prize-name">${escapeHTML(prize.name)}</span>
       </div>
-      <span class="queue-prize-progress">${prize.drawn}/${prize.total}</span>
+      <span class="queue-prize-progress">${parseInt(prize.drawn)}/${parseInt(prize.total)}</span>
     `;
 
     prizeList.appendChild(li);
@@ -168,8 +187,8 @@ function addPrizeRow(name = '', total = 1) {
   row.className = 'queue-prize-row';
 
   row.innerHTML = `
-    <input type="text" class="form-control queue-prize-name-input" placeholder="獎項名稱（例如：頭獎）" value="${name}" aria-label="獎項名稱" />
-    <input type="number" class="form-control queue-prize-total-input" min="1" value="${total}" aria-label="數量" />
+    <input type="text" class="form-control queue-prize-name-input" placeholder="獎項名稱（例如：頭獎）" value="${escapeHTML(name)}" aria-label="獎項名稱" />
+    <input type="number" class="form-control queue-prize-total-input" min="1" value="${parseInt(total) || 1}" aria-label="數量" />
     <button type="button" class="btn btn-remove-prize" aria-label="刪除此獎項">✕</button>
   `;
 
@@ -485,17 +504,16 @@ function initThreeScene() {
 
 // 創建超高品質文字材質的函數 (SDF-like approach) - moda 黑白黃主題
 // Safari 用戶代理檢測
-function isSafari() {
-  return /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-}
+const _isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+function isSafari() { return _isSafari; }
 
 function createUltraTextTexture(text, fontSize = 48, textColor = '#1a1a1a', bgColor = '#FFD700') {
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
   
   // 優化解析度：平衡品質與性能
-  const superRes = 3; // 降低超採樣倍數提升性能
-  const baseWidth = 1024; // 降低基礎解析度
+  const superRes = 2; // 2x 超採樣（從 3x 降低，節省 55% GPU 記憶體）
+  const baseWidth = 1024;
   const baseHeight = 512;
   canvas.width = baseWidth * superRes;
   canvas.height = baseHeight * superRes;
@@ -574,7 +592,7 @@ function createCSSCard(winnerName) {
   cardElement.innerHTML = `
     <div class="card-front">
       <div class="card-content">
-        <div class="card-text">${winnerName}</div>
+        <div class="card-text">${escapeHTML(winnerName)}</div>
         <div class="card-decoration">moda</div>
       </div>
     </div>
@@ -1003,6 +1021,11 @@ function createWinnerCard(winnerName) {
 let explosionParticles = [];
 let lastTime = performance.now();
 
+// 快取渲染模式（避免每幀解析 URL）
+const _renderTestMode = window.location.search.includes('render=');
+const _webglOnly = window.location.search.includes('render=webgl');
+const _css3dOnly = window.location.search.includes('render=css3d');
+
 function animate() {
   // 這個 ID 會在 stopAnimation 被清除，所以這是循環的條件
   animationId = requestAnimationFrame(animate);
@@ -1029,17 +1052,13 @@ function animate() {
   }
 
   // 渲染器分離測試 - 用於 Safari 相容性除錯
-  const renderTestMode = window.location.search.includes('render=');
-  const webglOnly = window.location.search.includes('render=webgl');
-  const css3dOnly = window.location.search.includes('render=css3d');
-
   // 渲染 WebGL 場景（背景和效果）
-  if (renderer && scene && camera && !css3dOnly) {
+  if (renderer && scene && camera && !_css3dOnly) {
     renderer.render(scene, camera);
   }
 
   // 渲染 CSS3D 場景（清晰文字）
-  if (cssRenderer && cssScene && camera && !webglOnly) {
+  if (cssRenderer && cssScene && camera && !_webglOnly) {
     cssRenderer.render(cssScene, camera);
   }
 }
@@ -1054,8 +1073,19 @@ function stopAnimation() {
 
 // 清理 3D 場景
 function cleanupThreeScene() {
-  // stopAnimation(); // 移到 showCardShowerAnimation 的結尾處呼叫，避免重複
-  
+  // 清理所有 TWEEN 動畫，避免引用已 dispose 物件
+  if (typeof TWEEN !== 'undefined') {
+    TWEEN.removeAll();
+  }
+
+  // 清理殘留爆炸粒子
+  explosionParticles.forEach(p => {
+    if (p.geometry) p.geometry.dispose();
+    if (p.material) p.material.dispose();
+    if (scene) scene.remove(p);
+  });
+  explosionParticles = [];
+
   // 清理 WebGL 卡牌 - 強化 GPU 記憶體管理
   cards.forEach((card, index) => {
     try {
@@ -1471,12 +1501,15 @@ function updateExplosionParticles(particles, deltaTime = 0.016) {
 let cameraShake = {
   intensity: 0,
   duration: 0,
-  originalPosition: new THREE.Vector3(),
+  originalPosition: null,
   isShaking: false
 };
 
 // 觸發螢幕震動
 function triggerCameraShake(intensity = 0.1, duration = 0.5) {
+  if (!cameraShake.originalPosition) {
+    cameraShake.originalPosition = new THREE.Vector3();
+  }
   if (camera && !cameraShake.isShaking) {
     cameraShake.originalPosition.copy(camera.position);
   }
@@ -2026,130 +2059,6 @@ function addCardPulseEffect(webglCard, cssCard, gridScale) {
     .start();
 }
 
-// 同步 WebGL 和 CSS3D 卡牌動畫 (V3 - 加入防穿模)
-function animateCardPair(webglCard, cssCard, finalPosition, gridScale, delay = 0, scatterPosition) {
-  return new Promise((resolve) => {
-    // 階段1：起始狀態 - 爆發式起點
-    webglCard.position.set(0, 0, -1); // 更靠近中心，增強爆發感
-    webglCard.rotation.set(0, 0, 0); // 修正：正面朝前 (前面是 +Z 面，索引 4)
-    webglCard.scale.set(0.05, 0.05, 0.05); // 更小的起始尺寸，增強放大效果
-    
-    // CSS3D 卡片同步（如果存在）
-    if (cssCard) {
-      cssCard.position.copy(webglCard.position);
-      cssCard.rotation.copy(webglCard.rotation);
-      cssCard.scale.set(0.0003, 0.0003, 0.0003); // CSS3D 對應更小的縮放
-    }
-    
-    // 階段2：飛舞狀態 - 使用預分配的分散位置避免穿模
-    const { x: randomX, y: randomY, z: randomZ } = scatterPosition;
-    
-    setTimeout(() => {
-      // 優化：使用單一更新函式減少回調次數
-      const syncCSS = () => {
-        if (cssCard) {
-          cssCard.position.copy(webglCard.position);
-          cssCard.rotation.copy(webglCard.rotation);
-          const s = webglCard.scale.x * 0.006;
-          cssCard.scale.set(s, s, s);
-        }
-      };
-
-      // WebGL 卡片動畫 - 爆發式噴出效果
-      new TWEEN.Tween(webglCard.position)
-        .to({ x: randomX, y: randomY, z: randomZ }, 500) // 大幅縮短到 500ms
-        .easing(TWEEN.Easing.Exponential.Out) // 使用爆發性 easing
-        .onUpdate(syncCSS)
-        .start();
-        
-      new TWEEN.Tween(webglCard.scale)
-        .to({ x: 1, y: 1, z: 1 }, 500)
-        .easing(TWEEN.Easing.Exponential.Out)
-        .start();
-        
-      new TWEEN.Tween(webglCard.rotation)
-        .to({ x: Math.random() * Math.PI, y: Math.random() * Math.PI, z: Math.random() * Math.PI }, 500)
-        .easing(TWEEN.Easing.Exponential.Out)
-        .onComplete(() => {
-          // 階段3：快速飛到最終位置
-          setTimeout(() => {
-            // 快速歸位動畫
-            new TWEEN.Tween(webglCard.position)
-              .to(finalPosition, 800) // 進一步縮短時間
-              .easing(TWEEN.Easing.Back.InOut) // 使用回彈效果
-              .onUpdate(syncCSS)
-              .start();
-              
-            new TWEEN.Tween(webglCard.rotation)
-              .to({ x: 0, y: 0, z: 0 }, 800) // 正面朝前
-              .easing(TWEEN.Easing.Back.InOut)
-              .start();
-              
-            // 讓卡牌縮放到最終計算出的 gridScale
-            new TWEEN.Tween(webglCard.scale)
-              .to({ x: gridScale, y: gridScale, z: gridScale }, 800)
-              .easing(TWEEN.Easing.Back.InOut)
-              .onComplete(() => resolve()) // 在最後一個動畫完成時 resolve
-              .start();
-          }, 200); // 更短的間隔時間
-        })
-        .start();
-    }, delay);
-  });
-}
-
-// 原版動畫函數 (V3 - 加入防穿模)
-function animateCard(card, finalPosition, gridScale, delay = 0, scatterPosition) {
-  return new Promise((resolve) => {
-    // 階段1：起始狀態 - 爆發式起點
-    card.position.set(0, 0, -1); // 更靠近中心，增強爆發感
-    card.rotation.set(0, 0, 0); // 修正：正面朝前 (前面是 +Z 面，索引 4)
-    card.scale.set(0.05, 0.05, 0.05); // 更小的起始尺寸，增強放大效果
-    
-    // 階段2：飛舞狀態 - 使用預分配的分散位置避免穿模
-    const { x: randomX, y: randomY, z: randomZ } = scatterPosition;
-    
-    setTimeout(() => {
-      // 爆發式單卡動畫 - 快速噴出
-      new TWEEN.Tween(card.position)
-        .to({ x: randomX, y: randomY, z: randomZ }, 500)
-        .easing(TWEEN.Easing.Exponential.Out)
-        .start();
-        
-      new TWEEN.Tween(card.scale)
-        .to({ x: 1, y: 1, z: 1 }, 500)
-        .easing(TWEEN.Easing.Exponential.Out)
-        .start();
-        
-      new TWEEN.Tween(card.rotation)
-        .to({ x: Math.random() * Math.PI, y: Math.random() * Math.PI, z: Math.random() * Math.PI }, 500)
-        .easing(TWEEN.Easing.Exponential.Out)
-        .onComplete(() => {
-          // 階段3：快速歸位
-          setTimeout(() => {
-            new TWEEN.Tween(card.position)
-              .to(finalPosition, 800)
-              .easing(TWEEN.Easing.Back.InOut)
-              .start();
-              
-            new TWEEN.Tween(card.rotation)
-              .to({ x: 0, y: 0, z: 0 }, 800) // 正面朝前
-              .easing(TWEEN.Easing.Back.InOut)
-              .start();
-              
-            // 讓卡牌縮放到最終計算出的 gridScale
-            new TWEEN.Tween(card.scale)
-              .to({ x: gridScale, y: gridScale, z: gridScale }, 800)
-              .easing(TWEEN.Easing.Back.InOut)
-              .onComplete(() => resolve()) // 在最後一個動畫完成時 resolve
-              .start();
-          }, 200);
-        })
-        .start();
-    }, delay);
-  });
-}
-
 // 顯示載入動畫
 function showLoadingAnimation() {
   const overlay = document.getElementById('overlay');
@@ -2363,7 +2272,16 @@ function loadHistory() {
   const stored = localStorage.getItem('drawHistory');
   if (stored) {
     try {
-      historyList = JSON.parse(stored);
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) {
+        historyList = parsed.filter(r =>
+          r && typeof r.prize === 'string' &&
+          Array.isArray(r.winners) &&
+          typeof r.seed === 'string'
+        );
+      } else {
+        historyList = [];
+      }
     } catch {
       historyList = [];
     }
@@ -2424,10 +2342,10 @@ function renderHistoryPage(list, page) {
       card.className = 'card history-card';
       card.innerHTML = `
         <div class="card-body">
-          <h5 class="card-title">品項：${record.prize}</h5>
-          <h6 class="card-subtitle mb-2 text-muted">時間：${formattedDate}</h6>
-          <p class="card-text">中獎者：${record.winners.join('、')}</p>
-          <p class="card-text"><small class="text-secondary">亂數種子：${record.seed}</small></p>
+          <h5 class="card-title">品項：${escapeHTML(record.prize)}</h5>
+          <h6 class="card-subtitle mb-2 text-muted">時間：${escapeHTML(formattedDate)}</h6>
+          <p class="card-text">中獎者：${record.winners.map(w => escapeHTML(w)).join('、')}</p>
+          <p class="card-text"><small class="text-secondary">亂數種子：${escapeHTML(record.seed)}</small></p>
           <p class="card-text"><small class="text-secondary">允許重複：${record.allowRepeat ? '是' : '否'}</small></p>
         </div>
       `;
@@ -2544,36 +2462,13 @@ function handleAllowRepeatToggle() {
     document.getElementById('remainingContainer').innerHTML = '';
   } else {
     remainingWrapper.style.display = 'block';
-    const participants = document.getElementById('nameList').value
-      .split('\n').map(n => n.trim()).filter(n => n !== '');
+    const participants = getParticipants();
     updateParticipantCount(participants.length);
     renderRemainingList(participants);
   }
   document.getElementById('repeatHelp').textContent = allowRepeat
     ? '允許同一參與者重複中獎，不會移除名單。'
     : '不允許同一參與者重複中獎，中獎者將從名單移除。';
-}
-
-// Show countdown overlay function
-async function showCountdownOverlay() {
-  const overlay = document.getElementById('overlay');
-  const container = document.getElementById('countdownContainer');
-  container.innerHTML = '';
-  overlay.classList.add('show');
-
-  for (let c = 3; c > 0; c--) {
-    const div = document.createElement('div');
-    div.className = 'countdown-number';
-    div.textContent = c;
-    container.appendChild(div);
-    void div.offsetWidth;
-    await new Promise(r => setTimeout(r, 1000));
-    container.removeChild(div);
-  }
-  overlay.classList.add('fade-out');
-  setTimeout(() => {
-    overlay.classList.remove('show', 'fade-out');
-  }, 1000);
 }
 
 function scrollToWinners() {
@@ -2587,12 +2482,38 @@ function scrollToWinners() {
 
 async function shuffleWithSHA256(array, seed) {
   const encoder = new TextEncoder();
-  const data = encoder.encode(seed);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
   const result = [...array];
+
+  // Counter mode: 產出足夠隨機 bytes（每個 swap 需要 4 bytes）
+  const totalBytesNeeded = (result.length - 1) * 4;
+  const blocks = Math.ceil(totalBytesNeeded / 32);
+  let randomBytes = new Uint8Array(blocks * 32);
+  for (let block = 0; block < blocks; block++) {
+    const blockData = encoder.encode(seed + ':' + block);
+    const hash = await crypto.subtle.digest('SHA-256', blockData);
+    randomBytes.set(new Uint8Array(hash), block * 32);
+  }
+
+  const dataView = new DataView(randomBytes.buffer);
+  let byteOffset = 0;
+
   for (let i = result.length - 1; i > 0; i--) {
-    const j = hashArray[i % hashArray.length] % (i + 1);
+    const range = i + 1;
+    const limit = Math.floor(0x100000000 / range) * range;
+    let rand;
+    do {
+      if (byteOffset + 4 > randomBytes.byteLength) {
+        const extra = encoder.encode(seed + ':x:' + byteOffset);
+        const extraHash = await crypto.subtle.digest('SHA-256', extra);
+        const newBuf = new Uint8Array(randomBytes.byteLength + 32);
+        newBuf.set(randomBytes);
+        newBuf.set(new Uint8Array(extraHash), randomBytes.byteLength);
+        randomBytes = newBuf;
+      }
+      rand = new DataView(randomBytes.buffer).getUint32(byteOffset, true);
+      byteOffset += 4;
+    } while (rand >= limit);
+    const j = rand % range;
     [result[i], result[j]] = [result[j], result[i]];
   }
   return result;
@@ -2653,11 +2574,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateQueueStatusUI();
   initQueueManagerModal();
 
-  // 立即開始預載入 3D 資源
-  preloadResources();
+  // 延遲 3D 資源載入至首次抽獎（改善首頁載入速度）
+  // preloadResources(); — moved to drawButton click handler
   
   // 加入視窗大小調整監聽器
-  window.addEventListener('resize', handleWindowResize);
+  let _resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(_resizeTimer);
+    _resizeTimer = setTimeout(handleWindowResize, 150);
+  });
 
   // Set current year in footer
   const currentYearSpan = document.getElementById('currentYear');
@@ -2693,16 +2618,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('allowRepeatCheckbox').addEventListener('change', handleAllowRepeatToggle);
 
   document.getElementById('nameList').addEventListener('input', () => {
-    const participants = document.getElementById('nameList').value
-      .split('\n').map(n => n.trim()).filter(n => n !== '');
+    const participants = getParticipants();
     updateParticipantCount(participants.length);
     if (!document.getElementById('allowRepeatCheckbox').checked) {
       renderRemainingList(participants);
     }
   });
 
-  const initialParticipants = document.getElementById('nameList').value
-    .split('\n').map(n => n.trim()).filter(n => n !== '');
+  const initialParticipants = getParticipants();
   updateParticipantCount(initialParticipants.length);
   // Initial call to render remaining list if checkbox is unchecked
   if (!document.getElementById('allowRepeatCheckbox').checked) {
@@ -2755,12 +2678,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     let winners = []; // 在 try 區塊外部宣告以便 finally 區塊使用
     
     try {
+      // 首次抽獎時懶載入 3D 資源
+      if (!preloadedTextures.logoMaterial) {
+        await preloadResources();
+      }
+
       // 清理之前的 3D 場景和卡片，避免重複抽獎時出現殘留
       cleanupThreeScene();
 
       // 清理之前的中獎者顯示區域
       const winnersContainer = document.getElementById('winnersContainer');
       winnersContainer.innerHTML = '';
+      document.querySelector('.results-section').classList.add('has-results');
 
       // === Gift Queue Integration: Check if queue is active ===
       let currentQueuePrize = null;
@@ -2801,10 +2730,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       seedDisplay.textContent = '';
     }
 
-    let participants = textarea.value
-      .split('\n')
-      .map(name => name.trim())
-      .filter(name => name !== '');
+    let participants = getParticipants();
 
     if (participants.length < 1) {
       showAlert('請至少輸入 1 位參與者');
@@ -2860,18 +2786,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     let confettiColors = isDarkMode ? ['#FFFFFF', '#e9ecef', '#adb5bd', '#38d980'] : ['#1a1a1a', '#3e4346', '#565e62', '#2ECC71'];
     // Add gold/silver for surprise effect
     confettiColors = [...confettiColors, '#FFD700', '#C0C0C0'];
-
-    // Basic test call for confetti
-    if (typeof confetti === 'function') {
-      console.log('Confetti function is available. Attempting basic call.');
-      try {
-        confetti(); // Simplest possible call
-      } catch (e) {
-        console.error('Error during basic confetti call:', e);
-      }
-    } else {
-      console.error('Confetti function is NOT available.');
-    }
 
     // First burst - wider and more particles
     if (typeof confetti === 'function') {
